@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
 import MainLayout from '@/components/MainLayout'
 import Modal from '@/components/Modal'
+import { useFacility } from '@/contexts/FacilityContext'
 
 interface Facility {
   id: number
@@ -45,6 +46,7 @@ interface Resident {
 
 export default function MasterPage() {
   const searchParams = useSearchParams()
+  const { selectedFacilityId } = useFacility()
   const tabParam = searchParams.get('tab') as 'facility' | 'unit' | 'resident' | null
   const [activeTab, setActiveTab] = useState<'facility' | 'unit' | 'resident'>(
     tabParam && ['facility', 'unit', 'resident'].includes(tabParam) ? tabParam : 'facility'
@@ -90,11 +92,18 @@ export default function MasterPage() {
       fetchFacilities() // 利用者マスタでも施設リストが必要
       fetchResidents()
     }
-  }, [activeTab])
+  }, [activeTab, selectedFacilityId])
 
   const fetchFacilities = async () => {
     try {
-      const res = await fetch('/api/facilities?includeInactive=true')
+      // 施設マスタタブでは全施設を表示（選択された施設はハイライト）
+      // 他のタブでは選択された施設のみを取得（ドロップダウン用）
+      const url = activeTab === 'facility'
+        ? '/api/facilities?includeInactive=true'
+        : selectedFacilityId
+        ? `/api/facilities?includeInactive=true&facilityId=${selectedFacilityId}`
+        : '/api/facilities?includeInactive=true'
+      const res = await fetch(url)
       const data = await res.json()
       setFacilities(data)
     } catch (error) {
@@ -105,7 +114,11 @@ export default function MasterPage() {
 
   const fetchUnits = async () => {
     try {
-      const res = await fetch('/api/units?includeInactive=true')
+      // 選択された施設がある場合、その施設のユニットのみを取得
+      const url = selectedFacilityId
+        ? `/api/units?includeInactive=true&facilityId=${selectedFacilityId}`
+        : '/api/units?includeInactive=true'
+      const res = await fetch(url)
       const data = await res.json()
       setUnits(data)
     } catch (error) {
@@ -116,7 +129,11 @@ export default function MasterPage() {
 
   const fetchResidents = async () => {
     try {
-      const res = await fetch('/api/residents?includeInactive=true')
+      // 選択された施設がある場合、その施設の利用者のみを取得
+      const url = selectedFacilityId
+        ? `/api/residents?includeInactive=true&facilityId=${selectedFacilityId}`
+        : '/api/residents?includeInactive=true'
+      const res = await fetch(url)
       const data = await res.json()
       setResidents(data)
     } catch (error) {
@@ -222,7 +239,9 @@ export default function MasterPage() {
   // ユニットマスタの関数
   const handleAddUnit = () => {
     setEditingUnit(null)
-    setUnitForm({ facilityId: facilities.length > 0 ? facilities[0].id : 0, name: '' })
+    // 選択された施設がある場合はそれをデフォルトで選択
+    const defaultFacilityId = selectedFacilityId || (facilities.length > 0 ? facilities[0].id : 0)
+    setUnitForm({ facilityId: defaultFacilityId, name: '' })
     setShowUnitModal(true)
   }
 
@@ -300,16 +319,18 @@ export default function MasterPage() {
   // 利用者マスタの関数
   const handleAddResident = () => {
     setEditingResident(null)
+    // 選択された施設がある場合はそれをデフォルトで選択
+    const defaultFacilityId = selectedFacilityId || (facilities.length > 0 ? facilities[0].id : 0)
     setResidentForm({ 
-      facilityId: facilities.length > 0 ? facilities[0].id : 0, 
+      facilityId: defaultFacilityId, 
       unitId: 0, 
       name: '', 
       startDate: '', 
       endDate: '' 
     })
     setShowResidentModal(true)
-    if (facilities.length > 0) {
-      loadUnitsForFacility(facilities[0].id)
+    if (defaultFacilityId > 0) {
+      loadUnitsForFacility(defaultFacilityId)
     }
   }
 
@@ -462,8 +483,18 @@ export default function MasterPage() {
                     </tr>
                   ) : (
                     facilities.map((facility, index) => (
-                      <tr key={facility.id} className="border-t">
-                        <td className="px-4 py-3">{facility.name}</td>
+                      <tr
+                        key={facility.id}
+                        className={`border-t ${
+                          facility.id === selectedFacilityId ? 'bg-blue-50' : ''
+                        }`}
+                      >
+                        <td className="px-4 py-3">
+                          {facility.name}
+                          {facility.id === selectedFacilityId && (
+                            <span className="ml-2 text-xs text-blue-600 font-semibold">(選択中)</span>
+                          )}
+                        </td>
                         <td className="px-4 py-3">{facility.positionName || '-'}</td>
                         <td className="px-4 py-3">{facility.positionHolderName || '-'}</td>
                         <td className="px-4 py-3">
@@ -693,6 +724,7 @@ export default function MasterPage() {
                       value={unitForm.facilityId}
                       onChange={(e) => setUnitForm({ ...unitForm, facilityId: Number(e.target.value) })}
                       className="w-full px-3 py-2 border rounded"
+                      disabled={selectedFacilityId !== null}
                     >
                       <option value={0}>施設を選択</option>
                       {facilities.filter(f => f.isActive).map(facility => (
@@ -701,6 +733,11 @@ export default function MasterPage() {
                         </option>
                       ))}
                     </select>
+                    {selectedFacilityId !== null && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        施設は選択中の施設に固定されています
+                      </p>
+                    )}
                   </div>
                   <div>
                     <label className="block text-sm font-medium mb-1">ユニット名 <span className="text-red-500">*</span></label>
@@ -846,6 +883,7 @@ export default function MasterPage() {
                         loadUnitsForFacility(facilityId)
                       }}
                       className="w-full px-3 py-2 border rounded"
+                      disabled={selectedFacilityId !== null}
                     >
                       <option value={0}>施設を選択</option>
                       {facilities.filter(f => f.isActive).map(facility => (
@@ -854,6 +892,11 @@ export default function MasterPage() {
                         </option>
                       ))}
                     </select>
+                    {selectedFacilityId !== null && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        施設は選択中の施設に固定されています
+                      </p>
+                    )}
                   </div>
                   <div>
                     <label className="block text-sm font-medium mb-1">ユニット <span className="text-red-500">*</span></label>

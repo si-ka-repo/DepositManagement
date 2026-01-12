@@ -7,9 +7,14 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const year = Number(searchParams.get('year')) || new Date().getFullYear()
     const month = Number(searchParams.get('month')) || new Date().getMonth() + 1
+    const facilityIdParam = searchParams.get('facilityId')
+    const facilityId = facilityIdParam ? Number(facilityIdParam) : null
 
     const facilities = await prisma.facility.findMany({
-      where: { isActive: true },
+      where: {
+        isActive: true,
+        ...(facilityId ? { id: facilityId } : {}),
+      },
       include: {
         residents: {
           where: { isActive: true },

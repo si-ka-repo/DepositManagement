@@ -5,9 +5,14 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
     const includeInactive = searchParams.get('includeInactive') === 'true'
+    const facilityIdParam = searchParams.get('facilityId')
+    const facilityId = facilityIdParam ? Number(facilityIdParam) : null
 
     const residents = await prisma.resident.findMany({
-      where: includeInactive ? {} : { isActive: true },
+      where: {
+        ...(includeInactive ? {} : { isActive: true }),
+        ...(facilityId ? { facilityId } : {}),
+      },
       include: {
         facility: true,
         unit: true,

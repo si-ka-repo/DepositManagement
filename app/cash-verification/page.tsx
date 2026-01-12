@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import MainLayout from '@/components/MainLayout'
 import DateSelector from '@/components/DateSelector'
+import { useFacility } from '@/contexts/FacilityContext'
 
 interface Resident {
   id: number
@@ -41,6 +42,7 @@ const COIN_DENOMINATIONS: CashDenomination[] = [
 ]
 
 export default function CashVerificationPage() {
+  const { selectedFacilityId } = useFacility()
   const [year, setYear] = useState(new Date().getFullYear())
   const [month, setMonth] = useState(new Date().getMonth() + 1)
   const [residents, setResidents] = useState<Resident[]>([])
@@ -52,7 +54,7 @@ export default function CashVerificationPage() {
 
   useEffect(() => {
     fetchResidents()
-  }, [])
+  }, [selectedFacilityId])
 
   useEffect(() => {
     if (selectedResidentId) {
@@ -64,7 +66,11 @@ export default function CashVerificationPage() {
 
   const fetchResidents = async () => {
     try {
-      const response = await fetch('/api/residents')
+      // 選択された施設がある場合、その施設の利用者のみを取得
+      const url = selectedFacilityId
+        ? `/api/residents?facilityId=${selectedFacilityId}`
+        : '/api/residents'
+      const response = await fetch(url)
       const data = await response.json()
       setResidents(data)
     } catch (error) {

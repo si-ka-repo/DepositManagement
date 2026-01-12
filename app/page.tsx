@@ -1,10 +1,11 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import MainLayout from '@/components/MainLayout'
 import DateSelector from '@/components/DateSelector'
 import Card from '@/components/Card'
-import { useRouter } from 'next/navigation'
+import { useFacility } from '@/contexts/FacilityContext'
 
 interface FacilitySummary {
   id: number
@@ -14,18 +15,45 @@ interface FacilitySummary {
 
 export default function DashboardPage() {
   const router = useRouter()
+  const { selectedFacilityId, hasCompletedSelection } = useFacility()
   const [year, setYear] = useState(new Date().getFullYear())
   const [month, setMonth] = useState(new Date().getMonth() + 1)
   const [totalAmount, setTotalAmount] = useState(0)
   const [facilities, setFacilities] = useState<FacilitySummary[]>([])
+  const [isChecking, setIsChecking] = useState(true)
+
+  // 施設選択状態のチェック（初回レンダリング時のみ）
+  useEffect(() => {
+    // クライアントサイドでのみチェック（SSR回避）
+    const timer = setTimeout(() => {
+      setIsChecking(false)
+    }, 100)
+    return () => clearTimeout(timer)
+  }, [])
+
+  // 初回アクセス時（施設選択が完了していない場合）のみ、施設選択ページにリダイレクト
+  useEffect(() => {
+    if (!isChecking && !hasCompletedSelection) {
+      // ただし、施設選択ページ自体にはリダイレクトしない（無限ループ防止）
+      if (window.location.pathname !== '/facility-select') {
+        router.push('/facility-select')
+      }
+    }
+  }, [isChecking, hasCompletedSelection, router])
 
   useEffect(() => {
-    fetchDashboardData()
-  }, [year, month])
+    if (!isChecking && hasCompletedSelection) {
+      fetchDashboardData()
+    }
+  }, [year, month, isChecking, hasCompletedSelection, selectedFacilityId])
 
   const fetchDashboardData = async () => {
     try {
-      const response = await fetch(`/api/dashboard?year=${year}&month=${month}`)
+      // 選択された施設IDがある場合はフィルタリング
+      const url = selectedFacilityId
+        ? `/api/dashboard?year=${year}&month=${month}&facilityId=${selectedFacilityId}`
+        : `/api/dashboard?year=${year}&month=${month}`
+      const response = await fetch(url)
       const data = await response.json()
       setTotalAmount(data.totalAmount || 0)
       setFacilities(data.facilities || [])
@@ -43,32 +71,88 @@ export default function DashboardPage() {
     router.push(`/facilities/${facilityId}?year=${year}&month=${month}`)
   }
 
+  // ローディング中または施設選択が完了していない場合は何も表示しない（リダイレクト待ち）
+  if (isChecking || !hasCompletedSelection) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p className="text-gray-600">読み込み中...</p>
+        </div>
+      </div>
+    )
+  }
+
+  const selectedFacilityName = facilities.find(f => f.id === selectedFacilityId)?.name
+
   return (
     <MainLayout>
       <div>
-        <h1 className="text-3xl font-bold mb-6">法人ダッシュボード</h1>
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-3xl font-bold">法人ダッシュボード</h1>
+          {selectedFacilityId !== null && selectedFacilityName && (
+            <div className="px-4 py-2 bg-blue-100 border-2 border-blue-300 rounded-lg">
+              <p className="text-sm text-blue-800">
+                表示中: <span className="font-semibold">{selectedFacilityName}</span>
+              </p>
+            </div>
+          )}
+        </div>
         
         <DateSelector year={year} month={month} onDateChange={handleDateChange} />
 
         <div className="mb-8">
           <Card
-            title="法人全体の預かり金合計"
+            title={selectedFacilityId !== null ? `${selectedFacilityName}の預かり金合計` : '法人全体の預かり金合計'}
             amount={totalAmount}
             className="bg-blue-50 border-2 border-blue-200"
           />
         </div>
 
-        <h2 className="text-xl font-semibold mb-4">各施設の合計金額</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {facilities.map(facility => (
-            <Card
-              key={facility.id}
-              title={facility.name}
-              amount={facility.totalAmount}
-              onClick={() => handleFacilityClick(facility.id)}
-            />
-          ))}
-        </div>
+        {selectedFacilityId === null ? (
+          <>
+            <h2 className="text-xl font-semibold mb-4">各施設の合計金額</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {facilities.map(facility => (
+                <Card
+                  key={facility.id}
+                  title={facility.name}
+                  amount={facility.totalAmount}
+                  onClick={() => handleFacilityClick(facility.id)}
+                />
+              ))}
+            </div>
+          </>
+        ) : facilities.length > 0 ? (
+          <>
+            <div className="mb-4">
+              <p className="text-gray-600 mb-4">
+                選択された施設の情報を表示しています。
+                <button
+                  onClick={() => router.push('/facility-select')}
+                  className="ml-2 text-blue-600 hover:underline font-semibold"
+                >
+                  施設選択を変更
+                </button>
+              </p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {facilities.map(facility => (
+                <Card
+                  key={facility.id}
+                  title={facility.name}
+                  amount={facility.totalAmount}
+                  onClick={() => handleFacilityClick(facility.id)}
+                  className={facility.id === selectedFacilityId ? 'ring-2 ring-blue-500' : ''}
+                />
+              ))}
+            </div>
+          </>
+        ) : (
+          <div className="bg-white rounded-lg shadow-md p-8 text-center text-gray-500">
+            <p>施設データが見つかりません</p>
+          </div>
+        )}
       </div>
     </MainLayout>
   )

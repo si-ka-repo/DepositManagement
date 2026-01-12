@@ -7,6 +7,7 @@ import DateSelector from '@/components/DateSelector'
 import Card from '@/components/Card'
 import Modal from '@/components/Modal'
 import Toast from '@/components/Toast'
+import { useFacility } from '@/contexts/FacilityContext'
 
 interface Transaction {
   id: number
@@ -32,6 +33,7 @@ export default function ResidentDetailPage() {
   const params = useParams()
   const searchParams = useSearchParams()
   const router = useRouter()
+  const { selectedFacilityId } = useFacility()
   const residentId = Number(params.id)
   
   const [year, setYear] = useState(() => {
@@ -44,6 +46,7 @@ export default function ResidentDetailPage() {
   })
   
   const [residentName, setResidentName] = useState('')
+  const [residentFacilityId, setResidentFacilityId] = useState<number | null>(null)
   const [balance, setBalance] = useState(0)
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [showInOutForm, setShowInOutForm] = useState(false)
@@ -80,6 +83,7 @@ export default function ResidentDetailPage() {
       )
       const data = await response.json()
       setResidentName(data.residentName || '')
+      setResidentFacilityId(data.facilityId || null)
       setBalance(data.balance || 0)
       setTransactions(data.transactions || [])
     } catch (error) {
@@ -196,6 +200,21 @@ export default function ResidentDetailPage() {
     <MainLayout>
       <div>
         <h1 className="text-3xl font-bold mb-6">利用者詳細: {residentName}</h1>
+        
+        {/* 選択された施設と異なる施設の利用者のページにアクセスした場合の警告 */}
+        {selectedFacilityId !== null && residentFacilityId !== null && selectedFacilityId !== residentFacilityId && (
+          <div className="mb-4 p-4 bg-yellow-50 border-2 border-yellow-300 rounded-lg">
+            <p className="text-yellow-800">
+              ⚠️ 現在選択されている施設と異なる施設の利用者のページを表示しています。
+              <button
+                onClick={() => router.push('/facility-select')}
+                className="ml-2 text-blue-600 hover:underline font-semibold"
+              >
+                施設選択を変更
+              </button>
+            </p>
+          </div>
+        )}
         
         <DateSelector year={year} month={month} onDateChange={handleDateChange} />
 

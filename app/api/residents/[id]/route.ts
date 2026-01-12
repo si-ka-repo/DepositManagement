@@ -39,6 +39,7 @@ export async function GET(
 
     return NextResponse.json({
       residentName: resident.name,
+      facilityId: resident.facilityId,
       balance,
       transactions: transactionsWithBalance,
     })

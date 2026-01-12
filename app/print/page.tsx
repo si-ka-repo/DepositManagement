@@ -3,13 +3,14 @@
 import { useState } from 'react'
 import MainLayout from '@/components/MainLayout'
 import DateSelector from '@/components/DateSelector'
+import { useFacility } from '@/contexts/FacilityContext'
 
 export default function PrintPage() {
+  const { selectedFacilityId } = useFacility()
   const [year, setYear] = useState(new Date().getFullYear())
   const [month, setMonth] = useState(new Date().getMonth() + 1)
   const [printUnit, setPrintUnit] = useState<'corporation' | 'facility' | 'unit' | 'resident'>('facility')
   const [includeDetails, setIncludeDetails] = useState(true)
-  const [selectedFacilityId, setSelectedFacilityId] = useState<number | null>(null)
 
   const handleDateChange = (newYear: number, newMonth: number) => {
     setYear(newYear)
@@ -84,6 +85,11 @@ export default function PrintPage() {
               printUnit === 'unit' ? 'ユニット' : '利用者'
             }
           </p>
+          {selectedFacilityId !== null && (
+            <p className="text-sm text-blue-600 mt-2">
+              ※ 選択された施設のデータのみが印刷対象となります
+            </p>
+          )}
           {/* ここに実際の印刷データを表示 */}
         </div>
       </div>

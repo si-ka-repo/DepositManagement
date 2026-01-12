@@ -5,6 +5,7 @@ import { useParams, useSearchParams, useRouter } from 'next/navigation'
 import MainLayout from '@/components/MainLayout'
 import DateSelector from '@/components/DateSelector'
 import Card from '@/components/Card'
+import { useFacility } from '@/contexts/FacilityContext'
 
 interface UnitSummary {
   id: number
@@ -22,6 +23,7 @@ export default function FacilityDetailPage() {
   const params = useParams()
   const searchParams = useSearchParams()
   const router = useRouter()
+  const { selectedFacilityId } = useFacility()
   const facilityId = Number(params.id)
   
   const [year, setYear] = useState(() => {
@@ -90,12 +92,29 @@ export default function FacilityDetailPage() {
     )
   }
 
+  // 選択された施設と異なる施設のページにアクセスした場合の警告
+  const isMismatchedFacility = selectedFacilityId !== null && selectedFacilityId !== facilityId
+
   return (
     <MainLayout>
       <div>
         <h1 className="text-3xl font-bold mb-6">
           施設詳細: {isLoading ? '読み込み中...' : facilityName || '施設が見つかりません'}
         </h1>
+        
+        {isMismatchedFacility && (
+          <div className="mb-4 p-4 bg-yellow-50 border-2 border-yellow-300 rounded-lg">
+            <p className="text-yellow-800">
+              ⚠️ 現在選択されている施設と異なる施設のページを表示しています。
+              <button
+                onClick={() => router.push('/facility-select')}
+                className="ml-2 text-blue-600 hover:underline font-semibold"
+              >
+                施設選択を変更
+              </button>
+            </p>
+          </div>
+        )}
         
         <DateSelector year={year} month={month} onDateChange={handleDateChange} />
 

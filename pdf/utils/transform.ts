@@ -202,6 +202,9 @@ export interface ResidentPrintData {
   statement: {
     month: string
   }
+  unit: {
+    name: string
+  }
   resident: {
     name: string
   }
@@ -367,6 +370,9 @@ export function transformToResidentPrintData(
   return {
     statement: {
       month: monthStr,
+    },
+    unit: {
+      name: resident.unit.name,
     },
     resident: {
       name: resident.name,

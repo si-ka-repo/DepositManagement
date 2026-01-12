@@ -5,9 +5,14 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
     const includeInactive = searchParams.get('includeInactive') === 'true'
+    const facilityIdParam = searchParams.get('facilityId')
+    const facilityId = facilityIdParam ? Number(facilityIdParam) : null
 
     const facilities = await prisma.facility.findMany({
-      where: includeInactive ? {} : { isActive: true },
+      where: {
+        ...(includeInactive ? {} : { isActive: true }),
+        ...(facilityId ? { id: facilityId } : {}),
+      },
       orderBy: { sortOrder: 'asc' },
     })
     return NextResponse.json(facilities)

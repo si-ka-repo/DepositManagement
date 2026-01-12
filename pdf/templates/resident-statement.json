@@ -24,6 +24,13 @@
       },
       {
         "type": "text",
+        "value": "{{unit.name}}",
+        "align": "right",
+        "fontSize": 12,
+        "marginBottom": 4
+      },
+      {
+        "type": "text",
         "value": "{{resident.name}}　様",
         "align": "right",
         "fontSize": 12
@@ -48,7 +55,7 @@
   "summary": {
     "rows": [
       {
-        "label": "合計（表示）",
+        "label": "合計",
         "income": "{{summary.totalIncome}}",
         "expense": "{{summary.totalExpense}}",
         "balance": "{{summary.currentBalance}}"

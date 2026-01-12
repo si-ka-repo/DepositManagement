@@ -49,7 +49,7 @@
   "summary": {
     "rows": [
       {
-        "label": "合計（表示）",
+        "label": "合計",
         "income": "{{summary.totalIncome}}",
         "expense": "{{summary.totalExpense}}",
         "balance": "{{summary.currentBalance}}"
