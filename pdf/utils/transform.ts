@@ -71,14 +71,16 @@ export function transformToPrintData(
     )
     
     // 前月末までの残高を計算（繰越行用）
+    // 訂正区分は計算から除外
     const previousBalance = resident.transactions
       .filter((t) => new Date(t.transactionDate) <= previousMonthEnd)
       .reduce((balance, t) => {
-        if (t.transactionType === "in" || t.transactionType === "correct_in") {
+        if (t.transactionType === "in") {
           return balance + t.amount
-        } else if (t.transactionType === "out" || t.transactionType === "correct_out") {
+        } else if (t.transactionType === "out") {
           return balance - t.amount
         }
+        // correct_in と correct_out は計算しない
         return balance
       }, 0)
 
@@ -103,16 +105,18 @@ export function transformToPrintData(
       } as any)
     }
 
-    // 当月の取引を追加
-    monthTransactions.forEach((t) => {
-      allTransactions.push({
-        ...t,
-        resident: {
-          ...resident,
-          unit: unit,
-        },
-      } as any)
-    })
+    // 当月の取引を追加（訂正区分は除外）
+    monthTransactions
+      .filter((t) => t.transactionType !== "correct_in" && t.transactionType !== "correct_out")
+      .forEach((t) => {
+        allTransactions.push({
+          ...t,
+          resident: {
+            ...resident,
+            unit: unit,
+          },
+        } as any)
+      })
   })
 
   // 日付順にソート
@@ -146,9 +150,8 @@ export function transformToPrintData(
       }
     }
 
-    // 通常の取引
-    const isIncome =
-      t.transactionType === "in" || t.transactionType === "correct_in"
+    // 通常の取引（訂正区分は既にフィルタリングされている）
+    const isIncome = t.transactionType === "in"
     const amount = t.amount
 
     if (isIncome) {
@@ -254,14 +257,16 @@ export function transformToResidentPrintData(
   )
 
   // 前月末までの残高を計算（繰越行用）
+  // 訂正区分は計算から除外
   const previousBalance = resident.transactions
     .filter((t) => new Date(t.transactionDate) <= previousMonthEnd)
     .reduce((balance, t) => {
-      if (t.transactionType === "in" || t.transactionType === "correct_in") {
+      if (t.transactionType === "in") {
         return balance + t.amount
-      } else if (t.transactionType === "out" || t.transactionType === "correct_out") {
+      } else if (t.transactionType === "out") {
         return balance - t.amount
       }
+      // correct_in と correct_out は計算しない
       return balance
     }, 0)
 
@@ -285,8 +290,12 @@ export function transformToResidentPrintData(
     } as any)
   }
 
-  // 当月の取引を追加
-  allTransactions.push(...monthTransactions)
+  // 当月の取引を追加（訂正区分は除外）
+  allTransactions.push(
+    ...monthTransactions.filter(
+      (t) => t.transactionType !== "correct_in" && t.transactionType !== "correct_out"
+    )
+  )
 
   // 日付順にソート
   allTransactions.sort((a, b) => {
@@ -318,9 +327,8 @@ export function transformToResidentPrintData(
       }
     }
 
-    // 通常の取引
-    const isIncome =
-      t.transactionType === "in" || t.transactionType === "correct_in"
+    // 通常の取引（訂正区分は既にフィルタリングされている）
+    const isIncome = t.transactionType === "in"
     const amount = t.amount
 
     if (isIncome) {
@@ -337,12 +345,6 @@ export function transformToResidentPrintData(
         break
       case "out":
         typeLabel = "出金"
-        break
-      case "correct_in":
-        typeLabel = "訂正入金"
-        break
-      case "correct_out":
-        typeLabel = "訂正出金"
         break
       default:
         typeLabel = t.transactionType

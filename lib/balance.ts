@@ -7,15 +7,18 @@ export interface TransactionWithBalance extends Transaction {
 /**
  * 取引リストから残高を計算する
  * 取引は日付順にソートされている必要がある
+ * 訂正区分（correct_in, correct_out）は計算から除外される
  */
 export function calculateBalance(transactions: Transaction[]): TransactionWithBalance[] {
   let balance = 0
   return transactions.map(transaction => {
-    if (transaction.transactionType === 'in' || transaction.transactionType === 'correct_in') {
+    // 訂正区分は計算から除外
+    if (transaction.transactionType === 'in') {
       balance += transaction.amount
-    } else if (transaction.transactionType === 'out' || transaction.transactionType === 'correct_out') {
+    } else if (transaction.transactionType === 'out') {
       balance -= transaction.amount
     }
+    // correct_in と correct_out は計算しない
     return {
       ...transaction,
       balance,
@@ -42,6 +45,7 @@ export function filterTransactionsByMonth(
 
 /**
  * 指定年月までの累積残高を計算
+ * 訂正区分（correct_in, correct_out）は計算から除外される
  */
 export function calculateBalanceUpToMonth(
   transactions: Transaction[],
@@ -54,11 +58,13 @@ export function calculateBalanceUpToMonth(
   for (const transaction of transactions) {
     const transactionDate = new Date(transaction.transactionDate)
     if (transactionDate <= targetDate) {
-      if (transaction.transactionType === 'in' || transaction.transactionType === 'correct_in') {
+      // 訂正区分は計算から除外
+      if (transaction.transactionType === 'in') {
         balance += transaction.amount
-      } else if (transaction.transactionType === 'out' || transaction.transactionType === 'correct_out') {
+      } else if (transaction.transactionType === 'out') {
         balance -= transaction.amount
       }
+      // correct_in と correct_out は計算しない
     }
   }
   

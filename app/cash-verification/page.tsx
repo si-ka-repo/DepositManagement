@@ -1,28 +1,21 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import MainLayout from '@/components/MainLayout'
 import DateSelector from '@/components/DateSelector'
 import { useFacility } from '@/contexts/FacilityContext'
-
-interface Resident {
-  id: number
-  name: string
-  facility: {
-    id: number
-    name: string
-  }
-  unit: {
-    id: number
-    name: string
-  }
-}
 
 interface CashDenomination {
   value: number
   label: string
   count: number
   amount: number
+}
+
+interface Facility {
+  id: number
+  name: string
+  isActive: boolean
 }
 
 const BILL_DENOMINATIONS: CashDenomination[] = [
@@ -42,62 +35,78 @@ const COIN_DENOMINATIONS: CashDenomination[] = [
 ]
 
 export default function CashVerificationPage() {
-  const { selectedFacilityId } = useFacility()
+  const { selectedFacilityId: globalSelectedFacilityId } = useFacility()
+  const [localSelectedFacilityId, setLocalSelectedFacilityId] = useState<number | null>(null)
+  const [facilities, setFacilities] = useState<Facility[]>([])
   const [year, setYear] = useState(new Date().getFullYear())
   const [month, setMonth] = useState(new Date().getMonth() + 1)
-  const [residents, setResidents] = useState<Resident[]>([])
-  const [selectedResidentId, setSelectedResidentId] = useState<number | null>(null)
-  const [residentBalance, setResidentBalance] = useState(0)
+  const [facilityBalance, setFacilityBalance] = useState(0)
+  const [facilityName, setFacilityName] = useState('')
   const [bills, setBills] = useState<CashDenomination[]>(BILL_DENOMINATIONS)
   const [coins, setCoins] = useState<CashDenomination[]>(COIN_DENOMINATIONS)
   const [isLoading, setIsLoading] = useState(false)
 
+  // グローバルに選択されている施設がある場合はそれを使用、なければローカル選択を使用
+  const selectedFacilityId = globalSelectedFacilityId || localSelectedFacilityId
+
+  // 施設一覧を取得
   useEffect(() => {
-    fetchResidents()
+    const fetchFacilities = async () => {
+      try {
+        const response = await fetch('/api/facilities')
+        const data = await response.json()
+        setFacilities(data.filter((f: Facility) => f.isActive))
+      } catch (error) {
+        console.error('Failed to fetch facilities:', error)
+      }
+    }
+    fetchFacilities()
+  }, [])
+
+  const fetchFacilityInfo = useCallback(async () => {
+    if (!selectedFacilityId) return
+    
+    try {
+      const response = await fetch(`/api/facilities/${selectedFacilityId}`)
+      if (!response.ok) {
+        throw new Error('Failed to fetch facility info')
+      }
+      const data = await response.json()
+      setFacilityName(data.name || '')
+    } catch (error) {
+      console.error('Failed to fetch facility info:', error)
+    }
   }, [selectedFacilityId])
 
-  useEffect(() => {
-    if (selectedResidentId) {
-      fetchResidentBalance()
-    } else {
-      setResidentBalance(0)
-    }
-  }, [selectedResidentId, year, month])
-
-  const fetchResidents = async () => {
-    try {
-      // 選択された施設がある場合、その施設の利用者のみを取得
-      const url = selectedFacilityId
-        ? `/api/residents?facilityId=${selectedFacilityId}`
-        : '/api/residents'
-      const response = await fetch(url)
-      const data = await response.json()
-      setResidents(data)
-    } catch (error) {
-      console.error('Failed to fetch residents:', error)
-      alert('利用者データの取得に失敗しました')
-    }
-  }
-
-  const fetchResidentBalance = async () => {
-    if (!selectedResidentId) return
+  const fetchFacilityBalance = useCallback(async () => {
+    if (!selectedFacilityId) return
     
     setIsLoading(true)
     try {
-      const response = await fetch(`/api/residents/${selectedResidentId}?year=${year}&month=${month}`)
+      const response = await fetch(`/api/facilities/${selectedFacilityId}?year=${year}&month=${month}`)
       if (!response.ok) {
-        throw new Error('Failed to fetch resident balance')
+        throw new Error('Failed to fetch facility balance')
       }
       const data = await response.json()
-      setResidentBalance(data.balance || 0)
+      setFacilityBalance(data.totalAmount || 0)
     } catch (error) {
-      console.error('Failed to fetch resident balance:', error)
-      alert('利用者残高の取得に失敗しました')
-      setResidentBalance(0)
+      console.error('Failed to fetch facility balance:', error)
+      alert('施設残高の取得に失敗しました')
+      setFacilityBalance(0)
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [selectedFacilityId, year, month])
+
+  useEffect(() => {
+    if (selectedFacilityId) {
+      fetchFacilityBalance()
+      fetchFacilityInfo()
+    } else {
+      setFacilityBalance(0)
+      setFacilityName('')
+    }
+  }, [selectedFacilityId, fetchFacilityBalance, fetchFacilityInfo])
 
   const handleDateChange = (newYear: number, newMonth: number) => {
     setYear(newYear)
@@ -122,9 +131,7 @@ export default function CashVerificationPage() {
   const coinSubtotal = coins.reduce((sum, coin) => sum + coin.amount, 0)
   const totalAmount = billSubtotal + coinSubtotal
   const totalCount = bills.reduce((sum, bill) => sum + bill.count, 0) + coins.reduce((sum, coin) => sum + coin.count, 0)
-  const difference = residentBalance - totalAmount
-
-  const selectedResident = residents.find(r => r.id === selectedResidentId)
+  const difference = facilityBalance - totalAmount
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('ja-JP', {
@@ -145,38 +152,39 @@ export default function CashVerificationPage() {
         <h1 className="text-3xl font-bold mb-6">現金確認</h1>
         
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              利用者選択
-            </label>
-            <select
-              value={selectedResidentId || ''}
-              onChange={(e) => setSelectedResidentId(e.target.value ? Number(e.target.value) : null)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">利用者を選択してください</option>
-              {residents.map(resident => (
-                <option key={resident.id} value={resident.id}>
-                  {resident.facility.name} - {resident.unit.name} - {resident.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
+          {!globalSelectedFacilityId && (
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                施設選択
+              </label>
+              <select
+                value={localSelectedFacilityId || ''}
+                onChange={(e) => setLocalSelectedFacilityId(e.target.value ? Number(e.target.value) : null)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">施設を選択してください</option>
+                {facilities.map(facility => (
+                  <option key={facility.id} value={facility.id}>
+                    {facility.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <DateSelector year={year} month={month} onDateChange={handleDateChange} />
         </div>
 
-        {selectedResidentId && (
+        {selectedFacilityId ? (
           <>
-            {/* 利用者別残額合計 */}
+            {/* 施設別残額合計 */}
             <div className="bg-green-500 text-white rounded-lg shadow-md p-6 mb-6">
               <div className="text-lg font-semibold mb-2">利用者別残額合計</div>
               <div className="text-3xl font-bold">
-                {isLoading ? '読み込み中...' : formatCurrency(residentBalance)}
+                {isLoading ? '読み込み中...' : formatCurrency(facilityBalance)}
               </div>
-              {selectedResident && (
+              {facilityName && (
                 <div className="text-sm mt-2 opacity-90">
-                  {selectedResident.facility.name} - {selectedResident.unit.name} - {selectedResident.name}
+                  {facilityName}
                 </div>
               )}
             </div>
@@ -297,7 +305,7 @@ export default function CashVerificationPage() {
                 <div className="bg-green-50 border-2 border-green-200 rounded-lg p-4">
                   <div className="text-sm text-gray-600 mb-1">利用者別残額合計</div>
                   <div className="text-xl font-bold text-green-800 mb-2">
-                    {formatCurrency(residentBalance)}
+                    {formatCurrency(facilityBalance)}
                   </div>
                   <div className="text-sm text-gray-600 mb-1">合計</div>
                   <div className="text-2xl font-bold text-green-800">
@@ -307,11 +315,9 @@ export default function CashVerificationPage() {
               </div>
             </div>
           </>
-        )}
-
-        {!selectedResidentId && (
+        ) : (
           <div className="bg-white rounded-lg shadow-md p-8 text-center text-gray-500">
-            利用者を選択してください
+            施設を選択してください。サイドバーから「施設選択」を選択して施設を選択してください。
           </div>
         )}
       </div>

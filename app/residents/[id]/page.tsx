@@ -196,6 +196,44 @@ export default function ResidentDetailPage() {
     }
   }
 
+  const handleCorrectTransaction = async (transactionId: number) => {
+    // 確認ダイアログ
+    if (!confirm('この取引を訂正としてマークしますか？\n訂正後、この取引は計算から除外され、印刷にも含まれません。')) {
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/transactions/${transactionId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        setToast({
+          message: '取引を訂正としてマークしました',
+          type: 'success',
+          isVisible: true,
+        })
+        fetchResidentData()
+      } else {
+        setToast({
+          message: data.error || '訂正の処理に失敗しました',
+          type: 'error',
+          isVisible: true,
+        })
+      }
+    } catch (error) {
+      console.error('Failed to correct transaction:', error)
+      setToast({
+        message: '訂正の処理に失敗しました',
+        type: 'error',
+        isVisible: true,
+      })
+    }
+  }
+
   return (
     <MainLayout>
       <div>
@@ -566,12 +604,13 @@ export default function ResidentDetailPage() {
                   <th className="px-4 py-3 text-left text-sm font-semibold">支払先</th>
                   <th className="px-4 py-3 text-right text-sm font-semibold">金額</th>
                   <th className="px-4 py-3 text-right text-sm font-semibold">残高</th>
+                  <th className="px-4 py-3 text-center text-sm font-semibold">操作</th>
                 </tr>
               </thead>
               <tbody>
                 {transactions.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
+                    <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
                       明細がありません
                     </td>
                   </tr>
@@ -579,17 +618,21 @@ export default function ResidentDetailPage() {
                   transactions.map((transaction) => {
                     const isIn = transaction.transactionType === 'in' || transaction.transactionType === 'correct_in'
                     const isCorrect = transaction.transactionType === 'correct_in' || transaction.transactionType === 'correct_out'
+                    const canCorrect = !isCorrect && isCurrentMonth
                     
                     return (
-                      <tr key={transaction.id} className="border-t hover:bg-gray-50">
-                        <td className="px-4 py-3 text-sm">
+                      <tr 
+                        key={transaction.id} 
+                        className={`border-t hover:bg-gray-50 ${isCorrect ? 'opacity-60' : ''}`}
+                      >
+                        <td className={`px-4 py-3 text-sm ${isCorrect ? 'line-through' : ''}`}>
                           {new Date(transaction.transactionDate).toLocaleDateString('ja-JP', {
                             year: 'numeric',
                             month: '2-digit',
                             day: '2-digit',
                           })}
                         </td>
-                        <td className="px-4 py-3 text-sm">
+                        <td className={`px-4 py-3 text-sm ${isCorrect ? 'line-through' : ''}`}>
                           <span className={`px-2 py-1 rounded text-xs font-medium ${
                             isIn
                               ? isCorrect
@@ -602,22 +645,37 @@ export default function ResidentDetailPage() {
                             {getTransactionTypeLabel(transaction.transactionType)}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-sm">{transaction.description || '-'}</td>
-                        <td className="px-4 py-3 text-sm">{transaction.payee || '-'}</td>
+                        <td className={`px-4 py-3 text-sm ${isCorrect ? 'line-through' : ''}`}>
+                          {transaction.description || '-'}
+                        </td>
+                        <td className={`px-4 py-3 text-sm ${isCorrect ? 'line-through' : ''}`}>
+                          {transaction.payee || '-'}
+                        </td>
                         <td className={`px-4 py-3 text-sm text-right font-medium ${
                           isIn ? 'text-blue-600' : 'text-red-600'
-                        }`}>
+                        } ${isCorrect ? 'line-through' : ''}`}>
                           {isIn ? '+' : '-'}
                           {new Intl.NumberFormat('ja-JP', {
                             style: 'currency',
                             currency: 'JPY',
                           }).format(transaction.amount)}
                         </td>
-                        <td className="px-4 py-3 text-sm text-right font-semibold text-gray-900">
+                        <td className={`px-4 py-3 text-sm text-right font-semibold text-gray-900 ${isCorrect ? 'line-through' : ''}`}>
                           {new Intl.NumberFormat('ja-JP', {
                             style: 'currency',
                             currency: 'JPY',
                           }).format(transaction.balance)}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          {canCorrect && (
+                            <button
+                              onClick={() => handleCorrectTransaction(transaction.id)}
+                              className="px-3 py-1 bg-orange-500 text-white text-xs rounded hover:bg-orange-600 shadow-md hover:shadow-lg transition-shadow"
+                              title="この取引を訂正としてマーク"
+                            >
+                              ✏️ 訂正
+                            </button>
+                          )}
                         </td>
                       </tr>
                     )
