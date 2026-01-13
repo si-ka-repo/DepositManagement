@@ -6,6 +6,11 @@ interface ImportRow {
   unitName: string
   residentName: string
   initialBalance: number
+  startDate?: string
+  endDate?: string
+  positionName?: string
+  positionHolderName?: string
+  sortOrder?: number
 }
 
 export async function POST(request: Request) {
@@ -27,29 +32,125 @@ export async function POST(request: Request) {
 
     // 施設・ユニット・利用者のマップを作成
     const facilityMap = new Map<string, number>()
+    const facilityInfoMap = new Map<string, { positionName?: string | null, positionHolderName?: string | null }>()
     const unitMap = new Map<string, number>()
     const residentMap = new Map<string, number>()
+
+    // 日付文字列をDateオブジェクトに変換するヘルパー関数
+    const parseDate = (dateString?: string, fieldName?: string): Date | null => {
+      if (!dateString || dateString.trim() === '') {
+        return null
+      }
+      // YYYY-MM-DD形式を検証
+      const datePattern = /^\d{4}-\d{2}-\d{2}$/
+      if (!datePattern.test(dateString.trim())) {
+        if (fieldName) {
+          results.errors.push(`${fieldName}の形式が不正です: ${dateString} (YYYY-MM-DD形式で入力してください)`)
+        }
+        return null
+      }
+      const date = new Date(dateString)
+      if (isNaN(date.getTime())) {
+        if (fieldName) {
+          results.errors.push(`${fieldName}の日付が無効です: ${dateString}`)
+        }
+        return null
+      }
+      return date
+    }
 
     for (const row of rows) {
       try {
         // 施設の取得または作成
         let facilityId = facilityMap.get(row.facilityName)
+        let facilityInfo = facilityInfoMap.get(row.facilityName)
+        
         if (!facilityId) {
           let facility = await prisma.facility.findFirst({
             where: { name: row.facilityName, isActive: true },
           })
           if (!facility) {
+            // 新規作成時は施設情報を設定
+            // CSVに指定があればそれを使用、なければnull
+            const facilityData: any = {
+              name: row.facilityName,
+              sortOrder: row.sortOrder ?? 0,
+              isActive: true,
+            }
+            if (row.positionName) {
+              facilityData.positionName = row.positionName
+            }
+            if (row.positionHolderName) {
+              facilityData.positionHolderName = row.positionHolderName
+            }
             facility = await prisma.facility.create({
-              data: {
-                name: row.facilityName,
-                sortOrder: 0,
-                isActive: true,
-              },
+              data: facilityData,
             })
             results.facilitiesCreated++
+            // 施設情報をマップに保存
+            facilityInfo = {
+              positionName: facility.positionName,
+              positionHolderName: facility.positionHolderName,
+            }
+          } else {
+            // 既存施設の情報を更新（オプション項目のみ）
+            const updateData: any = {}
+            // CSVに指定がある場合のみ更新（既存値がnullの場合のみ）
+            if (row.positionName && !facility.positionName) {
+              updateData.positionName = row.positionName
+            }
+            if (row.positionHolderName && !facility.positionHolderName) {
+              updateData.positionHolderName = row.positionHolderName
+            }
+            if (row.sortOrder !== undefined && facility.sortOrder === 0) {
+              updateData.sortOrder = row.sortOrder
+            }
+            if (Object.keys(updateData).length > 0) {
+              facility = await prisma.facility.update({
+                where: { id: facility.id },
+                data: updateData,
+              })
+            }
+            // 施設情報をマップに保存（既存の値または更新後の値）
+            facilityInfo = {
+              positionName: facility.positionName,
+              positionHolderName: facility.positionHolderName,
+            }
           }
           facilityId = facility.id
           facilityMap.set(row.facilityName, facilityId)
+          facilityInfoMap.set(row.facilityName, facilityInfo)
+        } else {
+          // 既に取得済みの施設情報を使用
+          facilityInfo = facilityInfoMap.get(row.facilityName)
+          
+          // CSVに役職名・役職者名が指定されている場合、施設情報を更新（既存値がnullの場合のみ）
+          if (row.positionName || row.positionHolderName) {
+            const facility = await prisma.facility.findUnique({
+              where: { id: facilityId },
+            })
+            if (facility) {
+              const updateData: any = {}
+              if (row.positionName && !facility.positionName) {
+                updateData.positionName = row.positionName
+              }
+              if (row.positionHolderName && !facility.positionHolderName) {
+                updateData.positionHolderName = row.positionHolderName
+              }
+              if (Object.keys(updateData).length > 0) {
+                const updatedFacility = await prisma.facility.update({
+                  where: { id: facilityId },
+                  data: updateData,
+                })
+                // 施設情報をマップに更新
+                facilityInfo = {
+                  positionName: updatedFacility.positionName,
+                  positionHolderName: updatedFacility.positionHolderName,
+                }
+                facilityInfoMap.set(row.facilityName, facilityInfo)
+              }
+            }
+          }
         }
 
         // ユニットの取得または作成
@@ -90,15 +191,42 @@ export async function POST(request: Request) {
             },
           })
           if (!resident) {
+            // 新規作成時は利用者情報を設定
+            const residentData: any = {
+              facilityId,
+              unitId,
+              name: row.residentName,
+              isActive: true,
+            }
+            const startDate = parseDate(row.startDate, `利用者「${row.residentName}」の入居日`)
+            const endDate = parseDate(row.endDate, `利用者「${row.residentName}」の退居日`)
+            if (startDate) {
+              residentData.startDate = startDate
+            }
+            if (endDate) {
+              residentData.endDate = endDate
+            }
             resident = await prisma.resident.create({
-              data: {
-                facilityId,
-                unitId,
-                name: row.residentName,
-                isActive: true,
-              },
+              data: residentData,
             })
             results.residentsCreated++
+          } else {
+            // 既存利用者の情報を更新（オプション項目のみ、空の場合は更新しない）
+            const updateData: any = {}
+            const startDate = parseDate(row.startDate, `利用者「${row.residentName}」の入居日`)
+            const endDate = parseDate(row.endDate, `利用者「${row.residentName}」の退居日`)
+            if (startDate && !resident.startDate) {
+              updateData.startDate = startDate
+            }
+            if (endDate && !resident.endDate) {
+              updateData.endDate = endDate
+            }
+            if (Object.keys(updateData).length > 0) {
+              resident = await prisma.resident.update({
+                where: { id: resident.id },
+                data: updateData,
+              })
+            }
           }
           residentId = resident.id
           residentMap.set(residentKey, residentId)

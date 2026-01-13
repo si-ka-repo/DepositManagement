@@ -23,6 +23,8 @@ export default function ImportPage() {
     }
 
     const headers = lines[0].split(',').map(h => h.trim())
+    
+    // 必須項目の検索
     const facilityIndex = headers.findIndex(h => 
       h.includes('施設') || h.toLowerCase().includes('facility')
     )
@@ -35,6 +37,23 @@ export default function ImportPage() {
     const balanceIndex = headers.findIndex(h => 
       h.includes('残高') || h.includes('金額') || h.toLowerCase().includes('balance') || h.toLowerCase().includes('amount')
     )
+    
+    // オプション項目の検索
+    const startDateIndex = headers.findIndex(h => 
+      h.includes('入居日') || h.includes('開始日') || h.toLowerCase().includes('startdate') || h.toLowerCase().includes('start_date')
+    )
+    const endDateIndex = headers.findIndex(h => 
+      h.includes('退居日') || h.includes('終了日') || h.toLowerCase().includes('enddate') || h.toLowerCase().includes('end_date')
+    )
+    const positionNameIndex = headers.findIndex(h => 
+      h.includes('役職名') || h.toLowerCase().includes('positionname') || h.toLowerCase().includes('position_name')
+    )
+    const positionHolderNameIndex = headers.findIndex(h => 
+      h.includes('役職者名') || h.includes('役職者') || h.toLowerCase().includes('positionholder') || h.toLowerCase().includes('position_holder')
+    )
+    const sortOrderIndex = headers.findIndex(h => 
+      h.includes('並び順') || h.includes('順序') || h.toLowerCase().includes('sortorder') || h.toLowerCase().includes('sort_order')
+    )
 
     if (facilityIndex === -1 || unitIndex === -1 || residentIndex === -1 || balanceIndex === -1) {
       throw new Error('CSVの列が見つかりません。施設名、ユニット名、利用者名、残高の列が必要です。')
@@ -44,12 +63,31 @@ export default function ImportPage() {
     for (let i = 1; i < lines.length; i++) {
       const values = lines[i].split(',').map(v => v.trim())
       if (values.length > Math.max(facilityIndex, unitIndex, residentIndex, balanceIndex)) {
-        rows.push({
+        const row: any = {
           facilityName: values[facilityIndex],
           unitName: values[unitIndex],
           residentName: values[residentIndex],
           initialBalance: parseFloat(values[balanceIndex]) || 0,
-        })
+        }
+        
+        // オプション項目の追加
+        if (startDateIndex !== -1 && values[startDateIndex]) {
+          row.startDate = values[startDateIndex]
+        }
+        if (endDateIndex !== -1 && values[endDateIndex]) {
+          row.endDate = values[endDateIndex]
+        }
+        if (positionNameIndex !== -1 && values[positionNameIndex]) {
+          row.positionName = values[positionNameIndex]
+        }
+        if (positionHolderNameIndex !== -1 && values[positionHolderNameIndex]) {
+          row.positionHolderName = values[positionHolderNameIndex]
+        }
+        if (sortOrderIndex !== -1 && values[sortOrderIndex]) {
+          row.sortOrder = parseInt(values[sortOrderIndex]) || 0
+        }
+        
+        rows.push(row)
       }
     }
 
@@ -83,9 +121,10 @@ export default function ImportPage() {
       } else {
         alert(`インポートエラー: ${data.error}`)
       }
-    } catch (error: any) {
-      alert(`エラー: ${error.message}`)
-    } finally {
+      } catch (error: any) {
+        console.error('Import error:', error)
+        alert(`エラー: ${error.message}`)
+      } finally {
       setIsImporting(false)
     }
   }
@@ -100,14 +139,33 @@ export default function ImportPage() {
           <p className="text-gray-600 mb-4">
             CSVファイルは以下の形式である必要があります：
           </p>
-          <pre className="bg-gray-100 p-4 rounded mb-4">
-{`施設名,ユニット名,利用者名,残高
-施設A,ユニット1,利用者1,100000
-施設A,ユニット1,利用者2,50000
-施設B,ユニット2,利用者3,200000`}
+          <div className="mb-4">
+            <h3 className="font-semibold mb-2">必須項目：</h3>
+            <ul className="list-disc list-inside text-sm text-gray-700 mb-4">
+              <li>施設名（「施設」を含む列名）</li>
+              <li>ユニット名（「ユニット」を含む列名）</li>
+              <li>利用者名（「利用者」または「名前」を含む列名）</li>
+              <li>残高（「残高」または「金額」を含む列名）</li>
+            </ul>
+            <h3 className="font-semibold mb-2">オプション項目：</h3>
+            <ul className="list-disc list-inside text-sm text-gray-700 mb-4">
+              <li>入居日（「入居日」または「開始日」を含む列名、形式: YYYY-MM-DD）</li>
+              <li>退居日（「退居日」または「終了日」を含む列名、形式: YYYY-MM-DD）</li>
+              <li>役職名（「役職名」を含む列名）</li>
+              <li>役職者名（「役職者名」または「役職者」を含む列名）</li>
+              <li>並び順（「並び順」または「順序」を含む列名、数値）</li>
+            </ul>
+          </div>
+          <pre className="bg-gray-100 p-4 rounded mb-4 overflow-x-auto">
+{`施設名,ユニット名,利用者名,残高,入居日,退居日,役職名,役職者名,並び順
+施設A,ユニット1,利用者1,100000,2024-01-01,,施設長,山田太郎,1
+施設A,ユニット1,利用者2,50000,2024-02-01,,施設長,山田太郎,1
+施設B,ユニット2,利用者3,200000,2024-03-01,,副施設長,佐藤花子,2`}
           </pre>
           <p className="text-sm text-gray-500">
-            ※ 列名は「施設」「ユニット」「利用者」「残高」を含む必要があります
+            ※ 必須項目の列名は「施設」「ユニット」「利用者」「残高」を含む必要があります<br/>
+            ※ 日付は YYYY-MM-DD 形式で入力してください（例: 2024-01-01）<br/>
+            ※ オプション項目は空欄でも構いません
           </p>
         </div>
 
