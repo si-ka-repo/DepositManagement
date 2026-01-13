@@ -149,7 +149,12 @@ export default function FacilityDetailPage() {
         </div>
 
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold">ユニット別合計</h2>
+          <div>
+            <h2 className="text-xl font-semibold">ユニット別合計</h2>
+            <p className="text-sm text-gray-600 mt-1">
+              ユニット名をクリックすると利用者が絞り込まれて表示されます
+            </p>
+          </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
           {units.map(unit => (
@@ -158,7 +163,7 @@ export default function FacilityDetailPage() {
               title={unit.name}
               amount={unit.totalAmount}
               onClick={() => handleUnitClick(unit.id)}
-              className={selectedUnitId === unit.id ? 'ring-2 ring-blue-500' : ''}
+              className={`bg-[#EFF6FF] ${selectedUnitId === unit.id ? 'ring-2 ring-blue-500' : ''}`}
             />
           ))}
         </div>
@@ -175,14 +180,19 @@ export default function FacilityDetailPage() {
         )}
 
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold">
-            利用者別残高
-            {selectedUnitId && (
-              <span className="text-sm font-normal text-gray-600 ml-2">
-                （{units.find(u => u.id === selectedUnitId)?.name || '選択中のユニット'}で絞り込み中）
-              </span>
-            )}
-          </h2>
+          <div>
+            <h2 className="text-xl font-semibold">
+              利用者別残高
+              {selectedUnitId && (
+                <span className="text-sm font-normal text-gray-600 ml-2">
+                  （{units.find(u => u.id === selectedUnitId)?.name || '選択中のユニット'}で絞り込み中）
+                </span>
+              )}
+            </h2>
+            <p className="text-sm text-gray-600 mt-1">
+              利用者名をクリックすると、各利用者の預り金の入力画面に移動します。
+            </p>
+          </div>
           <button
             onClick={() => router.push('/master?tab=resident')}
             className="px-4 py-2 bg-blue-500 text-white text-sm rounded hover:bg-blue-600 shadow-md hover:shadow-lg transition-shadow"
@@ -203,6 +213,7 @@ export default function FacilityDetailPage() {
                 title={resident.name}
                 amount={resident.balance}
                 onClick={() => handleResidentClick(resident.id)}
+                className="bg-[#FFF0F0]"
               />
             ))}
           </div>

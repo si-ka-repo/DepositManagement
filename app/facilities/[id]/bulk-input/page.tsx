@@ -48,7 +48,8 @@ export default function BulkInputPage() {
   
   const [facilityName, setFacilityName] = useState('')
   const [transactions, setTransactions] = useState<Transaction[]>([])
-  const [residents, setResidents] = useState<{ id: number; name: string }[]>([])
+  const [residents, setResidents] = useState<{ id: number; name: string; unitId: number | null; unit: { id: number; name: string } | null }[]>([])
+  const [units, setUnits] = useState<{ id: number; name: string }[]>([])
   const [showInOutForm, setShowInOutForm] = useState(false)
   const [showCorrectForm, setShowCorrectForm] = useState(false)
   const [formData, setFormData] = useState<TransactionFormData>({
@@ -67,12 +68,42 @@ export default function BulkInputPage() {
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
+  const [residentSearchQuery, setResidentSearchQuery] = useState('')
+  const [showResidentSearch, setShowResidentSearch] = useState(false)
+  const [selectedUnitId, setSelectedUnitId] = useState<number | null>(null)
+  const [correctResidentSearchQuery, setCorrectResidentSearchQuery] = useState('')
+  const [showCorrectResidentSearch, setShowCorrectResidentSearch] = useState(false)
+  const [selectedCorrectUnitId, setSelectedCorrectUnitId] = useState<number | null>(null)
 
   const currentDate = new Date()
   const currentYear = currentDate.getFullYear()
   const currentMonth = currentDate.getMonth() + 1
+  const currentDay = currentDate.getDate()
   const isCurrentMonth = year === currentYear && month === currentMonth
   const isPastMonth = year < currentYear || (year === currentYear && month < currentMonth)
+  
+  // 入金・出金モーダルの日付入力範囲を計算
+  // 10日までは先月1日〜今月末日まで、11日以降は今月1日〜今日まで
+  const getInOutDateRange = () => {
+    if (currentDay <= 10) {
+      // 10日以前の場合：先月1日〜今月末日まで
+      const previousMonthFirstDay = new Date(currentYear, currentMonth - 2, 1)
+      const currentMonthLastDay = new Date(currentYear, currentMonth, 0)
+      return {
+        min: previousMonthFirstDay.toISOString().split('T')[0],
+        max: currentMonthLastDay.toISOString().split('T')[0],
+      }
+    } else {
+      // 11日以降の場合：今月1日〜今日まで
+      const currentMonthFirstDay = new Date(currentYear, currentMonth - 1, 1)
+      return {
+        min: currentMonthFirstDay.toISOString().split('T')[0],
+        max: currentDate.toISOString().split('T')[0],
+      }
+    }
+  }
+  
+  const inOutDateRange = getInOutDateRange()
 
   useEffect(() => {
     fetchBulkData()
@@ -89,9 +120,19 @@ export default function BulkInputPage() {
       // 施設内の全利用者を取得
       const residentsResponse = await fetch(`/api/residents?facilityId=${facilityId}`)
       const residentsData = await residentsResponse.json()
-      setResidents(residentsData.map((r: { id: number; name: string }) => ({
+      setResidents(residentsData.map((r: { id: number; name: string; unitId: number | null; unit: { id: number; name: string } | null }) => ({
         id: r.id,
         name: r.name,
+        unitId: r.unitId,
+        unit: r.unit,
+      })).sort((a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name)))
+
+      // 施設内の全ユニットを取得
+      const unitsResponse = await fetch(`/api/units?facilityId=${facilityId}`)
+      const unitsData = await unitsResponse.json()
+      setUnits(unitsData.map((u: { id: number; name: string }) => ({
+        id: u.id,
+        name: u.name,
       })).sort((a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name)))
 
       // 施設内の全利用者の取引を取得
@@ -134,18 +175,26 @@ export default function BulkInputPage() {
       return
     }
 
-    // 当月入力の場合、対象日が現在の月と一致しているかチェック
+    // 入金・出金の場合、対象日が許可された範囲内かチェック
     if (isCurrentMonth && showInOutForm) {
       const transactionDate = new Date(formData.transactionDate)
-      const transactionYear = transactionDate.getFullYear()
-      const transactionMonth = transactionDate.getMonth() + 1
+      const transactionDateStr = transactionDate.toISOString().split('T')[0]
       
-      if (transactionYear !== currentYear || transactionMonth !== currentMonth) {
-        setToast({
-          message: '対象日は今月の日付を入力してください',
-          type: 'error',
-          isVisible: true,
-        })
+      // 10日までは先月1日〜今月末日まで、11日以降は今月1日〜今日まで
+      if (transactionDateStr < inOutDateRange.min || transactionDateStr > inOutDateRange.max) {
+        if (currentDay <= 10) {
+          setToast({
+            message: '対象日は先月1日から今月末日までの日付を入力してください',
+            type: 'error',
+            isVisible: true,
+          })
+        } else {
+          setToast({
+            message: '対象日は今月1日から今日までの日付を入力してください',
+            type: 'error',
+            isVisible: true,
+          })
+        }
         return
       }
     }
@@ -189,12 +238,13 @@ export default function BulkInputPage() {
     setIsSubmitting(true)
     
     try {
+      const { residentId: _, amount: __, ...restFormData } = formData
       const response = await fetch(`/api/transactions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          ...restFormData,
           residentId: Number(formData.residentId),
-          ...formData,
           amount: amount,
         }),
       })
@@ -330,13 +380,13 @@ export default function BulkInputPage() {
             <span className="text-xl font-semibold">
               {year}年{month}月
             </span>
-            <span className="text-sm text-gray-500">（月の移動はできません）</span>
+            <span className="text-sm text-gray-500">（月の移動はできません。前の月については10日まではこの画面で入力可能です。）</span>
           </div>
         </div>
 
         {isPastMonth && (
           <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded">
-            <span className="text-yellow-800">🔒 締め済み</span>
+            <span className="text-yellow-800">🔒 締め済み　※次の月の１０日までは次の月の入金・出金で入力してください。</span>
           </div>
         )}
 
@@ -530,6 +580,9 @@ export default function BulkInputPage() {
           isOpen={showInOutForm}
           onClose={() => {
             setShowInOutForm(false)
+            setResidentSearchQuery('')
+            setShowResidentSearch(false)
+            setSelectedUnitId(null)
             setFormData({
               residentId: '',
               transactionDate: '',
@@ -548,19 +601,100 @@ export default function BulkInputPage() {
                 <label className="block text-sm font-medium mb-1">
                   利用者 <span className="text-red-500">*</span>
                 </label>
-                <select
-                  required
-                  value={formData.residentId}
-                  onChange={(e) => setFormData({ ...formData, residentId: e.target.value })}
-                  className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">選択してください</option>
-                  {residents.map(resident => (
-                    <option key={resident.id} value={resident.id}>
-                      {resident.name}
-                    </option>
-                  ))}
-                </select>
+                <div className="space-y-2">
+                  {showResidentSearch && (
+                    <div className="space-y-2">
+                      <div>
+                        <label className="block text-xs font-medium mb-1 text-gray-600">ユニットで絞り込み</label>
+                        <select
+                          value={selectedUnitId || ''}
+                          onChange={(e) => setSelectedUnitId(e.target.value ? Number(e.target.value) : null)}
+                          className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                        >
+                          <option value="">すべてのユニット</option>
+                          {units.map(unit => (
+                            <option key={unit.id} value={unit.id}>
+                              {unit.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium mb-1 text-gray-600">利用者名で検索</label>
+                        <input
+                          type="text"
+                          value={residentSearchQuery}
+                          onChange={(e) => setResidentSearchQuery(e.target.value)}
+                          placeholder="利用者名で検索..."
+                          className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                        />
+                      </div>
+                      {(() => {
+                        let filteredResidents = residents
+                        if (selectedUnitId !== null) {
+                          filteredResidents = filteredResidents.filter(r => r.unitId === selectedUnitId)
+                        }
+                        if (residentSearchQuery) {
+                          filteredResidents = filteredResidents.filter(r => r.name.includes(residentSearchQuery))
+                        }
+                        return filteredResidents.length
+                      })() !== residents.length && (
+                        <p className="text-xs text-gray-500">
+                          {(() => {
+                            let filteredResidents = residents
+                            if (selectedUnitId !== null) {
+                              filteredResidents = filteredResidents.filter(r => r.unitId === selectedUnitId)
+                            }
+                            if (residentSearchQuery) {
+                              filteredResidents = filteredResidents.filter(r => r.name.includes(residentSearchQuery))
+                            }
+                            return filteredResidents.length
+                          })()}件が見つかりました
+                        </p>
+                      )}
+                    </div>
+                  )}
+                  <div className="flex gap-2">
+                    <select
+                      required
+                      value={formData.residentId}
+                      onChange={(e) => setFormData({ ...formData, residentId: e.target.value })}
+                      className="flex-1 px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">選択してください</option>
+                      {(() => {
+                        let filteredResidents = residents
+                        // ユニットで絞り込み
+                        if (selectedUnitId !== null) {
+                          filteredResidents = filteredResidents.filter(r => r.unitId === selectedUnitId)
+                        }
+                        // 名前で絞り込み
+                        if (residentSearchQuery) {
+                          filteredResidents = filteredResidents.filter(r => r.name.includes(residentSearchQuery))
+                        }
+                        return filteredResidents
+                      })().map(resident => (
+                        <option key={resident.id} value={resident.id}>
+                          {resident.name} {resident.unit ? `(${resident.unit.name})` : ''}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowResidentSearch(!showResidentSearch)
+                        if (showResidentSearch) {
+                          setResidentSearchQuery('')
+                          setSelectedUnitId(null)
+                        }
+                      }}
+                      className="px-3 py-2 border rounded hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      title="絞り込み検索"
+                    >
+                      🔍
+                    </button>
+                  </div>
+                </div>
               </div>
 
               <div>
@@ -573,7 +707,8 @@ export default function BulkInputPage() {
                   value={formData.transactionDate}
                   onChange={(e) => setFormData({ ...formData, transactionDate: e.target.value })}
                   className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  max={isCurrentMonth ? new Date().toISOString().split('T')[0] : undefined}
+                  min={isCurrentMonth ? inOutDateRange.min : undefined}
+                  max={isCurrentMonth ? inOutDateRange.max : undefined}
                 />
               </div>
 
@@ -658,6 +793,9 @@ export default function BulkInputPage() {
           isOpen={showCorrectForm}
           onClose={() => {
             setShowCorrectForm(false)
+            setCorrectResidentSearchQuery('')
+            setShowCorrectResidentSearch(false)
+            setSelectedCorrectUnitId(null)
             setFormData({
               residentId: '',
               transactionDate: '',
@@ -676,19 +814,100 @@ export default function BulkInputPage() {
                 <label className="block text-sm font-medium mb-1">
                   利用者 <span className="text-red-500">*</span>
                 </label>
-                <select
-                  required
-                  value={formData.residentId}
-                  onChange={(e) => setFormData({ ...formData, residentId: e.target.value })}
-                  className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-orange-500"
-                >
-                  <option value="">選択してください</option>
-                  {residents.map(resident => (
-                    <option key={resident.id} value={resident.id}>
-                      {resident.name}
-                    </option>
-                  ))}
-                </select>
+                <div className="space-y-2">
+                  {showCorrectResidentSearch && (
+                    <div className="space-y-2">
+                      <div>
+                        <label className="block text-xs font-medium mb-1 text-gray-600">ユニットで絞り込み</label>
+                        <select
+                          value={selectedCorrectUnitId || ''}
+                          onChange={(e) => setSelectedCorrectUnitId(e.target.value ? Number(e.target.value) : null)}
+                          className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
+                        >
+                          <option value="">すべてのユニット</option>
+                          {units.map(unit => (
+                            <option key={unit.id} value={unit.id}>
+                              {unit.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium mb-1 text-gray-600">利用者名で検索</label>
+                        <input
+                          type="text"
+                          value={correctResidentSearchQuery}
+                          onChange={(e) => setCorrectResidentSearchQuery(e.target.value)}
+                          placeholder="利用者名で検索..."
+                          className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
+                        />
+                      </div>
+                      {(() => {
+                        let filteredResidents = residents
+                        if (selectedCorrectUnitId !== null) {
+                          filteredResidents = filteredResidents.filter(r => r.unitId === selectedCorrectUnitId)
+                        }
+                        if (correctResidentSearchQuery) {
+                          filteredResidents = filteredResidents.filter(r => r.name.includes(correctResidentSearchQuery))
+                        }
+                        return filteredResidents.length
+                      })() !== residents.length && (
+                        <p className="text-xs text-gray-500">
+                          {(() => {
+                            let filteredResidents = residents
+                            if (selectedCorrectUnitId !== null) {
+                              filteredResidents = filteredResidents.filter(r => r.unitId === selectedCorrectUnitId)
+                            }
+                            if (correctResidentSearchQuery) {
+                              filteredResidents = filteredResidents.filter(r => r.name.includes(correctResidentSearchQuery))
+                            }
+                            return filteredResidents.length
+                          })()}件が見つかりました
+                        </p>
+                      )}
+                    </div>
+                  )}
+                  <div className="flex gap-2">
+                    <select
+                      required
+                      value={formData.residentId}
+                      onChange={(e) => setFormData({ ...formData, residentId: e.target.value })}
+                      className="flex-1 px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    >
+                      <option value="">選択してください</option>
+                      {(() => {
+                        let filteredResidents = residents
+                        // ユニットで絞り込み
+                        if (selectedCorrectUnitId !== null) {
+                          filteredResidents = filteredResidents.filter(r => r.unitId === selectedCorrectUnitId)
+                        }
+                        // 名前で絞り込み
+                        if (correctResidentSearchQuery) {
+                          filteredResidents = filteredResidents.filter(r => r.name.includes(correctResidentSearchQuery))
+                        }
+                        return filteredResidents
+                      })().map(resident => (
+                        <option key={resident.id} value={resident.id}>
+                          {resident.name} {resident.unit ? `(${resident.unit.name})` : ''}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowCorrectResidentSearch(!showCorrectResidentSearch)
+                        if (showCorrectResidentSearch) {
+                          setCorrectResidentSearchQuery('')
+                          setSelectedCorrectUnitId(null)
+                        }
+                      }}
+                      className="px-3 py-2 border rounded hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      title="絞り込み検索"
+                    >
+                      🔍
+                    </button>
+                  </div>
+                </div>
               </div>
 
               <div>

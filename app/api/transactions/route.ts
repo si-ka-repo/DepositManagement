@@ -22,17 +22,36 @@ export async function POST(request: Request) {
     }
 
     const transactionDate = new Date(body.transactionDate)
-    const transactionYear = transactionDate.getFullYear()
-    const transactionMonth = transactionDate.getMonth() + 1
+    const transactionDateStr = transactionDate.toISOString().split('T')[0]
     const currentDate = new Date()
     const currentYear = currentDate.getFullYear()
     const currentMonth = currentDate.getMonth() + 1
+    const currentDay = currentDate.getDate()
 
-    // 通常の入金・出金の場合、対象日が現在の月と一致しているかチェック
+    // 通常の入金・出金の場合、対象日が許可された範囲内かチェック
     if (body.transactionType === 'in' || body.transactionType === 'out') {
-      if (transactionYear !== currentYear || transactionMonth !== currentMonth) {
+      let minDate: string
+      let maxDate: string
+      let errorMessage: string
+      
+      if (currentDay <= 10) {
+        // 10日以前の場合：先月1日〜今月末日まで
+        const previousMonthFirstDay = new Date(currentYear, currentMonth - 2, 1)
+        const currentMonthLastDay = new Date(currentYear, currentMonth, 0)
+        minDate = previousMonthFirstDay.toISOString().split('T')[0]
+        maxDate = currentMonthLastDay.toISOString().split('T')[0]
+        errorMessage = '対象日は先月1日から今月末日までの日付を入力してください'
+      } else {
+        // 11日以降の場合：今月1日〜今日まで
+        const currentMonthFirstDay = new Date(currentYear, currentMonth - 1, 1)
+        minDate = currentMonthFirstDay.toISOString().split('T')[0]
+        maxDate = currentDate.toISOString().split('T')[0]
+        errorMessage = '対象日は今月1日から今日までの日付を入力してください'
+      }
+      
+      if (transactionDateStr < minDate || transactionDateStr > maxDate) {
         return NextResponse.json(
-          { error: '対象日は今月の日付を入力してください' },
+          { error: errorMessage },
           { status: 400 }
         )
       }

@@ -72,8 +72,32 @@ export default function ResidentDetailPage() {
   const currentDate = new Date()
   const currentYear = currentDate.getFullYear()
   const currentMonth = currentDate.getMonth() + 1
+  const currentDay = currentDate.getDate()
   const isCurrentMonth = year === currentYear && month === currentMonth
   const isPastMonth = year < currentYear || (year === currentYear && month < currentMonth)
+  
+  // 入金・出金モーダルの日付入力範囲を計算
+  // 10日までは先月1日〜今月末日まで、11日以降は今月1日〜今日まで
+  const getInOutDateRange = () => {
+    if (currentDay <= 10) {
+      // 10日以前の場合：先月1日〜今月末日まで
+      const previousMonthFirstDay = new Date(currentYear, currentMonth - 2, 1)
+      const currentMonthLastDay = new Date(currentYear, currentMonth, 0)
+      return {
+        min: previousMonthFirstDay.toISOString().split('T')[0],
+        max: currentMonthLastDay.toISOString().split('T')[0],
+      }
+    } else {
+      // 11日以降の場合：今月1日〜今日まで
+      const currentMonthFirstDay = new Date(currentYear, currentMonth - 1, 1)
+      return {
+        min: currentMonthFirstDay.toISOString().split('T')[0],
+        max: currentDate.toISOString().split('T')[0],
+      }
+    }
+  }
+  
+  const inOutDateRange = getInOutDateRange()
 
   useEffect(() => {
     fetchResidentData()
@@ -153,18 +177,26 @@ export default function ResidentDetailPage() {
       return
     }
 
-    // 当月入力の場合、対象日が現在の月と一致しているかチェック
+    // 入金・出金の場合、対象日が許可された範囲内かチェック
     if (isCurrentMonth && showInOutForm) {
       const transactionDate = new Date(formData.transactionDate)
-      const transactionYear = transactionDate.getFullYear()
-      const transactionMonth = transactionDate.getMonth() + 1
+      const transactionDateStr = transactionDate.toISOString().split('T')[0]
       
-      if (transactionYear !== currentYear || transactionMonth !== currentMonth) {
-        setToast({
-          message: '対象日は今月の日付を入力してください',
-          type: 'error',
-          isVisible: true,
-        })
+      // 10日までは先月1日〜今月末日まで、11日以降は今月1日〜今日まで
+      if (transactionDateStr < inOutDateRange.min || transactionDateStr > inOutDateRange.max) {
+        if (currentDay <= 10) {
+          setToast({
+            message: '対象日は先月1日から今月末日までの日付を入力してください',
+            type: 'error',
+            isVisible: true,
+          })
+        } else {
+          setToast({
+            message: '対象日は今月1日から今日までの日付を入力してください',
+            type: 'error',
+            isVisible: true,
+          })
+        }
         return
       }
     }
@@ -361,7 +393,7 @@ export default function ResidentDetailPage() {
 
         {isPastMonth && (
           <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded">
-            <span className="text-yellow-800">🔒 締め済み</span>
+            <span className="text-yellow-800">🔒 締め済み　※次の月の１０日までは次の月の入金・出金で入力してください。</span>
           </div>
         )}
 
@@ -476,7 +508,8 @@ export default function ResidentDetailPage() {
                   value={formData.transactionDate}
                   onChange={(e) => setFormData({ ...formData, transactionDate: e.target.value })}
                   className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  max={isCurrentMonth ? new Date().toISOString().split('T')[0] : undefined}
+                  min={isCurrentMonth ? inOutDateRange.min : undefined}
+                  max={isCurrentMonth ? inOutDateRange.max : undefined}
                 />
               </div>
 
