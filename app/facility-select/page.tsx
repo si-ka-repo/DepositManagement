@@ -24,7 +24,8 @@ export default function FacilitySelectPage() {
     try {
       const response = await fetch('/api/facilities')
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
       }
       const data = await response.json()
       // エラーオブジェクトの場合は空配列を設定
@@ -33,7 +34,9 @@ export default function FacilitySelectPage() {
         setFacilities([])
         return
       }
-      setFacilities(data.filter((f: Facility) => f.isActive))
+      // 配列であることを確認してからfilterを呼び出す
+      const facilitiesArray = Array.isArray(data) ? data : []
+      setFacilities(facilitiesArray.filter((f: Facility) => f.isActive))
     } catch (error) {
       console.error('Failed to fetch facilities:', error)
       setFacilities([])

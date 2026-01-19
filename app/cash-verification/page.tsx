@@ -54,10 +54,23 @@ export default function CashVerificationPage() {
     const fetchFacilities = async () => {
       try {
         const response = await fetch('/api/facilities')
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
+          throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
+        }
         const data = await response.json()
-        setFacilities(data.filter((f: Facility) => f.isActive))
+        // エラーオブジェクトの場合は空配列を設定
+        if (data.error || !Array.isArray(data)) {
+          console.error('Failed to fetch facilities:', data.error || 'Invalid response format')
+          setFacilities([])
+          return
+        }
+        // 配列であることを確認してからfilterを呼び出す
+        const facilitiesArray = Array.isArray(data) ? data : []
+        setFacilities(facilitiesArray.filter((f: Facility) => f.isActive))
       } catch (error) {
         console.error('Failed to fetch facilities:', error)
+        setFacilities([])
       }
     }
     fetchFacilities()

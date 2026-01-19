@@ -69,7 +69,18 @@ export async function POST(request: Request) {
     return NextResponse.json(facility)
   } catch (error) {
     console.error('Failed to create facility:', error)
-    return NextResponse.json({ error: 'Failed to create facility' }, { status: 500 })
+    const errorMessage = error instanceof Error ? error.message : 'Failed to create facility'
+    // Prismaエラーの詳細を返す
+    if (error instanceof Error && error.message.includes('Unique constraint')) {
+      return NextResponse.json(
+        { error: 'この施設名は既に登録されています' },
+        { status: 400 }
+      )
+    }
+    return NextResponse.json(
+      { error: errorMessage },
+      { status: 500 }
+    )
   }
 }
 

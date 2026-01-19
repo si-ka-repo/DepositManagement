@@ -103,7 +103,8 @@ export default function MasterPage() {
         : '/api/facilities?includeInactive=true'
       const res = await fetch(url)
       if (!res.ok) {
-        throw new Error(`HTTP error! status: ${res.status}`)
+        const errorData = await res.json().catch(() => ({ error: 'Unknown error' }))
+        throw new Error(errorData.error || `HTTP error! status: ${res.status}`)
       }
       const data = await res.json()
       // エラーオブジェクトの場合は空配列を設定
@@ -112,7 +113,9 @@ export default function MasterPage() {
         setFacilities([])
         return
       }
-      setFacilities(data)
+      // 配列であることを確認
+      const facilitiesArray = Array.isArray(data) ? data : []
+      setFacilities(facilitiesArray)
     } catch (error) {
       console.error('Failed to fetch facilities:', error)
       setFacilities([])
@@ -204,7 +207,8 @@ export default function MasterPage() {
           body: JSON.stringify(facilityForm),
         })
         if (!res.ok) {
-          throw new Error('更新に失敗しました')
+          const errorData = await res.json().catch(() => ({ error: '更新に失敗しました' }))
+          throw new Error(errorData.error || '更新に失敗しました')
         }
         alert('施設を更新しました')
       } else {
@@ -215,7 +219,8 @@ export default function MasterPage() {
           body: JSON.stringify(facilityForm),
         })
         if (!res.ok) {
-          throw new Error('追加に失敗しました')
+          const errorData = await res.json().catch(() => ({ error: '追加に失敗しました' }))
+          throw new Error(errorData.error || '追加に失敗しました')
         }
         alert('施設を追加しました')
       }
