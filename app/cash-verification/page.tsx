@@ -283,6 +283,11 @@ export default function CashVerificationPage() {
               display: none !important;
             }
             
+            /* 金種表（預り金）の金額を非表示 */
+            .print-hide-amount {
+              display: none !important;
+            }
+            
             /* 印刷時のセクション間のマージンを詰める */
             .print-section {
               margin-bottom: 0.5rem !important;
@@ -414,12 +419,20 @@ export default function CashVerificationPage() {
             {/* 施設別残額合計 */}
             <div className="mb-6 relative">
               <div className="text-lg font-semibold mb-2">金種表（預り金）</div>
-              <div className="text-3xl font-bold">
+              <div className="text-3xl font-bold print-hide-amount">
                 {isLoading ? '読み込み中...' : formatCurrency(facilityBalance)}
               </div>
               {facilityName && (
-                <div className="text-sm mt-2">
-                  {facilityName}
+                <div className="flex items-center justify-between mt-2">
+                  <div className="text-sm">
+                    {facilityName}
+                  </div>
+                  <button
+                    onClick={resetCounts}
+                    className="no-print-button px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded text-sm"
+                  >
+                    リセット
+                  </button>
                 </div>
               )}
               {/* 印刷用日付を右下に配置 */}
@@ -430,20 +443,11 @@ export default function CashVerificationPage() {
 
             {/* 紙幣・硬貨入力セクション（統合） */}
             <div className="bg-white rounded-lg shadow-md p-6 mb-6 print-section">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-semibold">紙幣</h2>
-                <button
-                  onClick={resetCounts}
-                  className="no-print-button px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded text-sm"
-                >
-                  リセット
-                </button>
-              </div>
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
                     <tr className="border-b">
-                      <th className="text-left py-2 px-4">額面</th>
+                      <th className="text-left py-2 px-4">金種</th>
                       <th className="text-center py-2 px-4 w-32">枚数</th>
                       <th className="text-right py-2 px-4 w-40">金額</th>
                     </tr>
@@ -473,15 +477,12 @@ export default function CashVerificationPage() {
               
               {/* 【本】セクション */}
               <div className="mt-6">
-                <div className="bg-green-100 px-4 py-2 mb-4 rounded">
-                  <span className="font-semibold text-green-800">【本】</span>
-                </div>
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead>
                       <tr className="border-b">
-                        <th className="text-left py-2 px-4">額面</th>
-                        <th className="text-center py-2 px-4 w-32">本数（50枚セット）</th>
+                        <th className="text-left py-2 px-4">【本】</th>
+                        <th className="text-center py-2 px-4 w-32">本数（50枚）</th>
                         <th className="text-right py-2 px-4 w-40">金額</th>
                       </tr>
                     </thead>

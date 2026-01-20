@@ -50,9 +50,6 @@ export const CashVerificationPdfRenderer = ({ data }: CashVerificationPdfRendere
           <View style={styles.headerTitle}>
             <Text style={styles.headerTitleText}>金種表（預り金）</Text>
           </View>
-          <View style={styles.headerAmount}>
-            <Text style={styles.headerAmountText}>{formatYen(data.facilityBalance)}</Text>
-          </View>
           <View style={styles.headerFacility}>
             <Text style={styles.headerFacilityText}>{data.facilityName}</Text>
           </View>
@@ -70,14 +67,11 @@ export const CashVerificationPdfRenderer = ({ data }: CashVerificationPdfRendere
 
         {/* 紙幣セクション */}
         <View style={styles.section}>
-          <View style={styles.sectionTitle}>
-            <Text style={styles.sectionTitleText}>紙幣</Text>
-          </View>
           <View style={styles.table}>
             {/* テーブルヘッダー */}
             <View style={styles.tableHeader}>
               <View style={[styles.tableHeaderCell, { width: "40%" }]}>
-                <Text style={styles.tableHeaderText}>額面</Text>
+                <Text style={styles.tableHeaderText}>金種</Text>
               </View>
               <View style={[styles.tableHeaderCell, { width: "30%" }]}>
                 <Text style={styles.tableHeaderText}>枚数</Text>
@@ -109,17 +103,14 @@ export const CashVerificationPdfRenderer = ({ data }: CashVerificationPdfRendere
 
         {/* 【本】セクション */}
         <View style={styles.section}>
-          <View style={styles.coinSectionTitle}>
-            <Text style={styles.coinSectionTitleText}>【本】</Text>
-          </View>
           <View style={styles.table}>
             {/* テーブルヘッダー */}
             <View style={styles.tableHeader}>
               <View style={[styles.tableHeaderCell, { width: "40%" }]}>
-                <Text style={styles.tableHeaderText}>額面</Text>
+                <Text style={styles.tableHeaderText}>【本】</Text>
               </View>
               <View style={[styles.tableHeaderCell, { width: "30%" }]}>
-                <Text style={styles.tableHeaderText}>本数（50枚セット）</Text>
+                <Text style={styles.tableHeaderText}>本数（50枚）</Text>
               </View>
               <View style={[styles.tableHeaderCell, { width: "30%" }]}>
                 <Text style={styles.tableHeaderText}>金額</Text>
@@ -191,13 +182,6 @@ const styles = StyleSheet.create({
     fontSize: 11, // 12から11に削減
     fontWeight: "bold",
   },
-  headerAmount: {
-    marginBottom: 3, // 5から3に削減
-  },
-  headerAmountText: {
-    fontSize: 18, // 20から18に削減
-    fontWeight: "bold",
-  },
   headerFacility: {
     marginBottom: 3, // 5から3に削減
   },
@@ -214,23 +198,6 @@ const styles = StyleSheet.create({
   },
   section: {
     marginBottom: 5, // 8から5に削減
-  },
-  sectionTitle: {
-    marginBottom: 3, // 5から3に削減
-  },
-  sectionTitleText: {
-    fontSize: 10, // 11から10に削減
-    fontWeight: "bold",
-  },
-  coinSectionTitle: {
-    backgroundColor: "#f0f0f0",
-    padding: 3, // 4から3に削減
-    marginBottom: 3, // 5から3に削減
-    borderRadius: 2,
-  },
-  coinSectionTitleText: {
-    fontSize: 9, // 10から9に削減
-    fontWeight: "bold",
   },
   table: {
     border: "1pt solid #000",
