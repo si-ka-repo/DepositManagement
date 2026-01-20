@@ -168,13 +168,17 @@ export default function CashVerificationPage() {
       <div>
         <style jsx global>{`
           @media print {
-            /* サイドバーを非表示 - より確実なセレクタ */
+            /* サイドバーを非表示 - 最も確実な方法 */
+            .no-print-sidebar,
+            .no-print-sidebar *,
             aside,
             nav,
             [role="navigation"],
+            body > div > div.flex > .no-print-sidebar,
             body > div > div.flex > aside,
             body > div > div.flex > nav,
             body > div > div.flex > div:first-child,
+            body > div[id*="__next"] > div.flex > .no-print-sidebar,
             body > div[id*="__next"] > div.flex > aside,
             body > div[id*="__next"] > div.flex > nav,
             body > div[id*="__next"] > div.flex > div:first-child,
@@ -186,6 +190,8 @@ export default function CashVerificationPage() {
               width: 0 !important;
               height: 0 !important;
               overflow: hidden !important;
+              position: absolute !important;
+              left: -9999px !important;
             }
             
             /* MainLayoutのflexレイアウトを解除 */
@@ -199,6 +205,7 @@ export default function CashVerificationPage() {
             main.flex-1 {
               width: 100% !important;
               max-width: 100% !important;
+              margin-left: 0 !important;
             }
             
             /* タイトル「現金確認」を非表示 */

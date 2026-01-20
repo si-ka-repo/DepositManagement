@@ -7,7 +7,9 @@ export default function MainLayout({
 }) {
   return (
     <div className="flex min-h-screen">
-      <Sidebar />
+      <div className="no-print-sidebar">
+        <Sidebar />
+      </div>
       <main className="flex-1 p-8 bg-gray-50">
         {children}
       </main>
