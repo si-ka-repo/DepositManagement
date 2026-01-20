@@ -168,10 +168,37 @@ export default function CashVerificationPage() {
       <div>
         <style jsx global>{`
           @media print {
-            /* サイドバーを非表示（MainLayoutのflexコンテナの最初の子要素） */
+            /* サイドバーを非表示 - より確実なセレクタ */
+            aside,
+            nav,
+            [role="navigation"],
+            body > div > div.flex > aside,
+            body > div > div.flex > nav,
             body > div > div.flex > div:first-child,
-            body > div > div[class*="flex"] > div:first-child {
+            body > div[id*="__next"] > div.flex > aside,
+            body > div[id*="__next"] > div.flex > nav,
+            body > div[id*="__next"] > div.flex > div:first-child,
+            /* Sidebarコンポーネントのdiv（w-64クラスを持つ） */
+            div.w-64,
+            div[class*="w-64"] {
               display: none !important;
+              visibility: hidden !important;
+              width: 0 !important;
+              height: 0 !important;
+              overflow: hidden !important;
+            }
+            
+            /* MainLayoutのflexレイアウトを解除 */
+            body > div > div.flex,
+            body > div[id*="__next"] > div.flex {
+              display: block !important;
+              flex-direction: column !important;
+            }
+            
+            /* メインコンテンツを全幅に */
+            main.flex-1 {
+              width: 100% !important;
+              max-width: 100% !important;
             }
             
             /* タイトル「現金確認」を非表示 */
@@ -185,7 +212,7 @@ export default function CashVerificationPage() {
               display: none !important;
             }
             
-            /* 印刷ボタンを非表示 */
+            /* 印刷ボタンとリセットボタンを非表示 */
             .no-print-button {
               display: none !important;
             }
@@ -206,9 +233,63 @@ export default function CashVerificationPage() {
               margin: 1cm;
             }
             
-            /* 全体のレイアウトを調整 */
-            body > div > div.flex {
-              display: block !important;
+            /* すべての背景色を白に、文字色を黒に統一（モノクロ印刷） */
+            * {
+              color: #000 !important;
+              background: #fff !important;
+              background-color: #fff !important;
+            }
+            
+            /* 金種表（預り金）の部分を印刷用に調整 */
+            .bg-green-500,
+            .bg-green-50,
+            .bg-green-100 {
+              background: #fff !important;
+              background-color: #fff !important;
+              border: 2px solid #000 !important;
+              color: #000 !important;
+            }
+            
+            /* テキストの色を黒に統一 */
+            .text-white,
+            .text-green-800,
+            .text-green-600,
+            .text-red-600,
+            .text-blue-600,
+            .text-gray-600 {
+              color: #000 !important;
+            }
+            
+            /* ボーダーの色を黒に統一 */
+            .border-green-200,
+            .border-gray-300,
+            .border-gray-400 {
+              border-color: #000 !important;
+            }
+            
+            /* 入力フィールドの背景を白に */
+            input,
+            select {
+              background: #fff !important;
+              background-color: #fff !important;
+              border: 1px solid #000 !important;
+              color: #000 !important;
+            }
+            
+            /* テーブルのボーダーを黒に */
+            table {
+              border-color: #000 !important;
+            }
+            
+            table th,
+            table td {
+              border-color: #000 !important;
+            }
+            
+            /* 影を削除 */
+            .shadow-md,
+            .shadow-lg {
+              box-shadow: none !important;
             }
           }
           
@@ -263,7 +344,7 @@ export default function CashVerificationPage() {
                 <h2 className="text-xl font-semibold">紙幣</h2>
                 <button
                   onClick={resetCounts}
-                  className="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded text-sm"
+                  className="no-print-button px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded text-sm"
                 >
                   リセット
                 </button>
