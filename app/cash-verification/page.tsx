@@ -170,6 +170,43 @@ export default function CashVerificationPage() {
     window.print()
   }
 
+  const handleDownloadPdf = async () => {
+    if (!selectedFacilityId) {
+      alert('施設を選択してください')
+      return
+    }
+
+    try {
+      // 紙幣・硬貨のデータをURLパラメータにエンコード
+      const billsParam = encodeURIComponent(JSON.stringify(bills))
+      const coinsParam = encodeURIComponent(JSON.stringify(coins))
+      
+      // APIを呼び出してPDFをダウンロード
+      const url = `/api/print/cash-verification?facilityId=${selectedFacilityId}&year=${year}&month=${month}&bills=${billsParam}&coins=${coinsParam}`
+      
+      const response = await fetch(url)
+      if (!response.ok) {
+        throw new Error('PDF生成に失敗しました')
+      }
+
+      // PDFをBlobとして取得
+      const blob = await response.blob()
+      
+      // ダウンロード
+      const downloadUrl = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = downloadUrl
+      link.download = `現金確認_${facilityName}_${year}年${month}月.pdf`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(downloadUrl)
+    } catch (error) {
+      console.error('Failed to download PDF:', error)
+      alert('PDFのダウンロードに失敗しました')
+    }
+  }
+
   return (
     <MainLayout>
       <div>
@@ -467,13 +504,20 @@ export default function CashVerificationPage() {
 
             {/* 合計・差異表示 */}
             <div className="bg-white rounded-lg shadow-md p-6 no-print-summary">
-              <div className="flex justify-end mb-4 no-print-button">
+              <div className="flex justify-end gap-2 mb-4 no-print-button">
                 <button
                   onClick={handlePrint}
                   className="px-6 py-2 bg-green-500 text-white rounded hover:bg-green-600 shadow-md hover:shadow-lg transition-shadow"
                   title="印刷"
                 >
                   🖨️ 印刷
+                </button>
+                <button
+                  onClick={handleDownloadPdf}
+                  className="px-6 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 shadow-md hover:shadow-lg transition-shadow"
+                  title="PDFダウンロード"
+                >
+                  📄 PDFダウンロード
                 </button>
               </div>
               <div className="grid grid-cols-3 gap-4">
