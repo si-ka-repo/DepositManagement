@@ -94,8 +94,13 @@ export async function GET(request: Request) {
     const pdfDocument = React.createElement(CashVerificationPdfRenderer, { data: pdfData })
     const pdfBuffer = await renderToBuffer(pdfDocument as any)
 
-    // PDFを返す（Bufferを直接Responseに渡す）
-    return new Response(pdfBuffer, {
+    // PDFを返す（BufferをArrayBufferに変換）
+    const arrayBuffer = pdfBuffer.buffer.slice(
+      pdfBuffer.byteOffset,
+      pdfBuffer.byteOffset + pdfBuffer.byteLength
+    )
+    
+    return new Response(arrayBuffer, {
       headers: {
         "Content-Type": "application/pdf",
         "Content-Disposition": `attachment; filename="現金確認_${facility.name}_${year}年${month}月.pdf"`,
