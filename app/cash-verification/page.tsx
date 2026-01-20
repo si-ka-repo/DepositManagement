@@ -159,14 +159,69 @@ export default function CashVerificationPage() {
     setCoins(COIN_DENOMINATIONS.map(c => ({ ...c, count: 0, amount: 0 })))
   }
 
+  const handlePrint = () => {
+    window.print()
+  }
+
   return (
     <MainLayout>
       <div>
+        <style jsx global>{`
+          @media print {
+            /* サイドバーを非表示（MainLayoutのflexコンテナの最初の子要素） */
+            body > div > div.flex > div:first-child,
+            body > div > div[class*="flex"] > div:first-child {
+              display: none !important;
+            }
+            
+            /* タイトル「現金確認」を非表示 */
+            h1.text-3xl {
+              display: none !important;
+            }
+            
+            /* 施設選択セクションとDateSelectorを非表示 */
+            .no-print-facility-select,
+            .no-print-date-selector {
+              display: none !important;
+            }
+            
+            /* 印刷ボタンを非表示 */
+            .no-print-button {
+              display: none !important;
+            }
+            
+            /* 印刷用日付を表示 */
+            .print-date {
+              display: block !important;
+            }
+            
+            /* メインコンテンツの余白を調整 */
+            main {
+              padding: 0 !important;
+              margin: 0 !important;
+            }
+            
+            /* ページの余白を調整 */
+            @page {
+              margin: 1cm;
+            }
+            
+            /* 全体のレイアウトを調整 */
+            body > div > div.flex {
+              display: block !important;
+            }
+          }
+          
+          /* 通常表示時は印刷用日付を非表示 */
+          .print-date {
+            display: none;
+          }
+        `}</style>
         <h1 className="text-3xl font-bold mb-6">現金確認</h1>
         
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+        <div className="bg-white rounded-lg shadow-md p-6 mb-6 no-print-date-selector">
           {!globalSelectedFacilityId && (
-            <div className="mb-4">
+            <div className="mb-4 no-print-facility-select">
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 施設選択
               </label>
@@ -191,7 +246,7 @@ export default function CashVerificationPage() {
           <>
             {/* 施設別残額合計 */}
             <div className="bg-green-500 text-white rounded-lg shadow-md p-6 mb-6">
-              <div className="text-lg font-semibold mb-2">利用者別残額合計</div>
+              <div className="text-lg font-semibold mb-2">金種表（預り金）</div>
               <div className="text-3xl font-bold">
                 {isLoading ? '読み込み中...' : formatCurrency(facilityBalance)}
               </div>
@@ -300,8 +355,24 @@ export default function CashVerificationPage() {
               </div>
             </div>
 
+            {/* 印刷用日付表示 */}
+            <div className="print-date bg-white rounded-lg shadow-md p-4 mb-4">
+              <div className="text-lg font-semibold text-gray-700">
+                印刷日: {new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' })}
+              </div>
+            </div>
+
             {/* 合計・差異表示 */}
             <div className="bg-white rounded-lg shadow-md p-6">
+              <div className="flex justify-end mb-4 no-print-button">
+                <button
+                  onClick={handlePrint}
+                  className="px-6 py-2 bg-green-500 text-white rounded hover:bg-green-600 shadow-md hover:shadow-lg transition-shadow"
+                  title="印刷"
+                >
+                  🖨️ 印刷
+                </button>
+              </div>
               <div className="grid grid-cols-3 gap-4">
                 <div className="bg-green-50 border-2 border-green-200 rounded-lg p-4">
                   <div className="text-sm text-gray-600 mb-1">計</div>
@@ -316,11 +387,11 @@ export default function CashVerificationPage() {
                   </div>
                 </div>
                 <div className="bg-green-50 border-2 border-green-200 rounded-lg p-4">
-                  <div className="text-sm text-gray-600 mb-1">利用者別残額合計</div>
+                  <div className="text-sm text-gray-600 mb-1">預り金合計</div>
                   <div className="text-xl font-bold text-green-800 mb-2">
                     {formatCurrency(facilityBalance)}
                   </div>
-                  <div className="text-sm text-gray-600 mb-1">合計</div>
+                  <div className="text-sm text-gray-600 mb-1">現金合計</div>
                   <div className="text-2xl font-bold text-green-800">
                     {formatCurrency(totalAmount)}
                   </div>
