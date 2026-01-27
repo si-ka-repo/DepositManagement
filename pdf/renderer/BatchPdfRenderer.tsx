@@ -3,6 +3,8 @@ import TextBlock from "./blocks/TextBlock"
 import TableBlock from "./blocks/TableBlock"
 import SummaryBlock from "./blocks/SummaryBlock"
 import UnitSummaryBlock from "./blocks/UnitSummaryBlock"
+import NoticeBlock from "./blocks/NoticeBlock"
+import FooterBlock from "./blocks/FooterBlock"
 import { PrintData, ResidentPrintData } from "../utils/transform"
 import depositStatementTemplate from "../templates/deposit-statement.json"
 import residentStatementTemplate from "../templates/resident-statement.json"
@@ -53,6 +55,17 @@ interface Template {
       expense: string
       balance?: string
     }>
+  }
+  notice?: {
+    title: string
+    lines: string[]
+    fontSize?: number
+    marginTop?: number
+  }
+  footer?: {
+    lines: string[]
+    align?: "left" | "center" | "right"
+    marginTop?: number
   }
 }
 
@@ -112,6 +125,16 @@ const renderPages = (
       {/* ユニット別・利用者別の合計を表示（最終ページのみ、deposit-statementテンプレートの場合） */}
       {pageIndex === pages.length - 1 && data.unitSummaries && template.templateId === "deposit-statement" && (
         <UnitSummaryBlock unitSummaries={data.unitSummaries} />
+      )}
+
+      {/* お知らせは最終ページのみ（resident-statementテンプレートの場合） */}
+      {pageIndex === pages.length - 1 && template.notice && template.templateId === "resident-statement" && (
+        <NoticeBlock notice={template.notice} />
+      )}
+
+      {/* フッターは最終ページのみ（resident-statementテンプレートの場合） */}
+      {pageIndex === pages.length - 1 && template.footer && template.templateId === "resident-statement" && (
+        <FooterBlock footer={template.footer} data={data} />
       )}
     </Page>
   ))

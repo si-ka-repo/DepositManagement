@@ -3,6 +3,8 @@ import TextBlock from "./blocks/TextBlock"
 import TableBlock from "./blocks/TableBlock"
 import SummaryBlock from "./blocks/SummaryBlock"
 import UnitSummaryBlock from "./blocks/UnitSummaryBlock"
+import NoticeBlock from "./blocks/NoticeBlock"
+import FooterBlock from "./blocks/FooterBlock"
 
 // 日本語フォントを登録（ローカルファイルから読み込み）
 try {
@@ -66,6 +68,17 @@ interface Template {
       balance?: string
     }>
   }
+  notice?: {
+    title: string
+    lines: string[]
+    fontSize?: number
+    marginTop?: number
+  }
+  footer?: {
+    lines: string[]
+    align?: "left" | "center" | "right"
+    marginTop?: number
+  }
 }
 
 interface PdfRendererProps {
@@ -121,14 +134,24 @@ export const PdfRenderer = ({ template, data }: PdfRendererProps) => {
             />
           )}
 
-          {/* 合計行の下に預り金総合計を表示（最終ページのみ） */}
-          {pageIndex === pages.length - 1 && template.summary && (
+          {/* 合計行の下に預り金総合計を表示（最終ページのみ、deposit-statementテンプレートの場合） */}
+          {pageIndex === pages.length - 1 && template.summary && template.templateId === "deposit-statement" && (
             <SummaryBlock summary={template.summary} data={data} />
           )}
 
-          {/* ユニット別・利用者別の合計を表示（最終ページのみ） */}
-          {pageIndex === pages.length - 1 && data.unitSummaries && (
+          {/* ユニット別・利用者別の合計を表示（最終ページのみ、deposit-statementテンプレートの場合） */}
+          {pageIndex === pages.length - 1 && data.unitSummaries && template.templateId === "deposit-statement" && (
             <UnitSummaryBlock unitSummaries={data.unitSummaries} />
+          )}
+
+          {/* お知らせは最終ページのみ（resident-statementテンプレートの場合） */}
+          {pageIndex === pages.length - 1 && template.notice && template.templateId === "resident-statement" && (
+            <NoticeBlock notice={template.notice} />
+          )}
+
+          {/* フッターは最終ページのみ（resident-statementテンプレートの場合） */}
+          {pageIndex === pages.length - 1 && template.footer && template.templateId === "resident-statement" && (
+            <FooterBlock footer={template.footer} data={data} />
           )}
         </Page>
       ))}
