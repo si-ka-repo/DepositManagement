@@ -42,7 +42,7 @@ const UnitSummaryBlock = ({ unitSummaries }: UnitSummaryBlockProps) => {
         const residentChunks = chunkResidents(unit.residents, MAX_CELLS_PER_ROW)
 
         return (
-          <View key={unit.unitId} style={styles.unitBox}>
+          <View key={unit.unitId} style={styles.unitBox} break>
             <Text style={styles.unitName}>{unit.unitName}</Text>
             
             {/* セル区切りのテーブル */}
