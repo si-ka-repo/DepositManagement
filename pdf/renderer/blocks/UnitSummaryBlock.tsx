@@ -39,7 +39,7 @@ const UnitSummaryBlock = ({ unitSummaries }: UnitSummaryBlockProps) => {
                   style={[
                     styles.cell,
                     styles.nameCell,
-                    index < unit.residents.length - 1 && styles.cellBorderRight,
+                    ...(index < unit.residents.length - 1 ? [styles.cellBorderRight] : []),
                   ]}
                 >
                   <Text style={styles.nameText}>{resident.residentName}</Text>
@@ -55,7 +55,7 @@ const UnitSummaryBlock = ({ unitSummaries }: UnitSummaryBlockProps) => {
                   style={[
                     styles.cell,
                     styles.valueCell,
-                    index < unit.residents.length - 1 && styles.cellBorderRight,
+                    ...(index < unit.residents.length - 1 ? [styles.cellBorderRight] : []),
                   ]}
                 >
                   <Text style={styles.valueText}>
