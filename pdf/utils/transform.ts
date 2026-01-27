@@ -239,15 +239,13 @@ export function transformToPrintData(
   // 各利用者の最終残高の合計を計算
   const currentBalance = Array.from(residentFinalBalances.values()).reduce((sum, balance) => sum + balance, 0)
 
-  // ユニット別・利用者別の当月合計を計算（繰越行は含めない）
+  // ユニット別・利用者別の当月合計を計算（繰越行を含める）
   // allTransactionsから直接計算することで、past_correct_in と past_correct_out を確実に含める
   // unitIdが指定されている場合はそのユニットのみ、nullの場合は全ユニット
   const targetUnits = unitId ? facility.units.filter((u) => u.id === unitId) : facility.units
   
-  // allTransactionsから繰越行とcorrect_in/correct_outを除外した当月の取引のみを取得
+  // allTransactionsからcorrect_in/correct_outを除外した当月の取引を取得（繰越行は含める）
   const monthTransactionsOnly = allTransactions.filter((t) => {
-    // 繰越行を除外
-    if ((t as any)._isCarryOver) return false
     // correct_in と correct_out は除外（打ち消し処理）
     if (t.transactionType === "correct_in" || t.transactionType === "correct_out") return false
     return true
@@ -258,14 +256,20 @@ export function transformToPrintData(
     const unitResidents = targetResidents.filter((r) => r.unitId === unit.id)
     
     const unitResidentSummaries = unitResidents.map((resident) => {
-      // allTransactionsから該当利用者の当月の取引のみを取得（繰越行は除外済み）
+      // allTransactionsから該当利用者の当月の取引を取得（繰越行も含む）
       const residentMonthTransactions = monthTransactionsOnly.filter(
         (t) => t.residentId === resident.id
       )
 
       // 当月の入金・出金合計を計算（past_correct_in と past_correct_out を含む）
-      // 取引タイプを確認して計算（transactionsの計算ロジックと同じ）
+      // 繰越行も含める（正の値は入金、負の値は出金として扱う）
       const residentIncome = residentMonthTransactions.reduce((sum, t) => {
+        const isCarryOver = (t as any)._isCarryOver
+        if (isCarryOver) {
+          // 繰越行：正の値は入金、負の値は0
+          const previousBalance = (t as any)._previousBalance ?? 0
+          return sum + (previousBalance > 0 ? previousBalance : 0)
+        }
         const type = t.transactionType
         if (type === "in" || type === "past_correct_in") {
           return sum + t.amount
@@ -274,6 +278,12 @@ export function transformToPrintData(
       }, 0)
 
       const residentExpense = residentMonthTransactions.reduce((sum, t) => {
+        const isCarryOver = (t as any)._isCarryOver
+        if (isCarryOver) {
+          // 繰越行：負の値は出金、正の値は0
+          const previousBalance = (t as any)._previousBalance ?? 0
+          return sum + (previousBalance < 0 ? Math.abs(previousBalance) : 0)
+        }
         const type = t.transactionType
         if (type === "out" || type === "past_correct_out") {
           return sum + t.amount
