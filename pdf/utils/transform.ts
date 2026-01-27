@@ -240,7 +240,10 @@ export function transformToPrintData(
   const currentBalance = Array.from(residentFinalBalances.values()).reduce((sum, balance) => sum + balance, 0)
 
   // ユニット別・利用者別の当月合計を計算（繰越行は含めない）
-  const unitSummaries = facility.units.map((unit) => {
+  // unitIdが指定されている場合はそのユニットのみ、nullの場合は全ユニット
+  const targetUnits = unitId ? facility.units.filter((u) => u.id === unitId) : facility.units
+  
+  const unitSummaries = targetUnits.map((unit) => {
     const unitResidents = facility.residents.filter((r) => r.unitId === unit.id)
     
     const unitResidentSummaries = unitResidents.map((resident) => {
@@ -254,7 +257,7 @@ export function transformToPrintData(
         return t.transactionType !== "correct_in" && t.transactionType !== "correct_out"
       })
 
-      // 当月の入金・出金合計を計算
+      // 当月の入金・出金合計を計算（past_correct_in と past_correct_out を含む）
       const residentIncome = monthTransactions.reduce((sum, t) => {
         if (t.transactionType === "in" || t.transactionType === "past_correct_in") {
           return sum + t.amount
@@ -292,9 +295,14 @@ export function transformToPrintData(
     }
   })
 
-  // 預り金総合計（全ユニットの合計）
-  const grandTotalIncome = unitSummaries.reduce((sum, u) => sum + u.totalIncome, 0)
-  const grandTotalExpense = unitSummaries.reduce((sum, u) => sum + u.totalExpense, 0)
+  // 預り金総合計（対象ユニットの合計、past_correct_in と past_correct_out を含む）
+  // transactionsから直接計算（繰越行を除外）
+  const grandTotalIncome = transactions
+    .filter((t) => !(t as any)._isCarryOver) // 繰越行を除外
+    .reduce((sum, t) => sum + t.income, 0)
+  const grandTotalExpense = transactions
+    .filter((t) => !(t as any)._isCarryOver) // 繰越行を除外
+    .reduce((sum, t) => sum + t.expense, 0)
 
   // 年月を日本語形式に変換（例: "4月"）
   const monthStr = `${month}月`
