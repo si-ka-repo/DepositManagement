@@ -28,22 +28,51 @@ const UnitSummaryBlock = ({ unitSummaries }: UnitSummaryBlockProps) => {
       {unitSummaries.map((unit) => (
         <View key={unit.unitId} style={styles.unitBox}>
           <Text style={styles.unitName}>{unit.unitName}</Text>
+          
+          {/* セル区切りのテーブル */}
+          <View style={styles.tableContainer}>
+            {/* 1行目: 利用者名（背景グレー） */}
+            <View style={styles.nameRow}>
+              {unit.residents.map((resident, index) => (
+                <View
+                  key={`name-${resident.residentId}`}
+                  style={[
+                    styles.cell,
+                    styles.nameCell,
+                    index < unit.residents.length - 1 && styles.cellBorderRight,
+                  ]}
+                >
+                  <Text style={styles.nameText}>{resident.residentName}</Text>
+                </View>
+              ))}
+            </View>
+            
+            {/* 2行目: 当月残高 */}
+            <View style={styles.valueRow}>
+              {unit.residents.map((resident, index) => (
+                <View
+                  key={`value-${resident.residentId}`}
+                  style={[
+                    styles.cell,
+                    styles.valueCell,
+                    index < unit.residents.length - 1 && styles.cellBorderRight,
+                  ]}
+                >
+                  <Text style={styles.valueText}>
+                    {formatYen(resident.netAmount)}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </View>
+          
+          {/* ユニット合計 */}
           <View style={styles.unitTotalRow}>
             <Text style={styles.unitTotalLabel}>ユニット合計:</Text>
             <Text style={styles.unitTotalValue}>
               {formatYen(unit.netAmount)}
             </Text>
           </View>
-          {unit.residents.map((resident) => (
-            <View key={resident.residentId} style={styles.residentRow}>
-              <Text style={styles.residentName}>
-                ・{resident.residentName}:
-              </Text>
-              <Text style={styles.residentValue}>
-                {formatYen(resident.netAmount)}
-              </Text>
-            </View>
-          ))}
         </View>
       ))}
     </View>
@@ -63,36 +92,59 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "bold",
     fontFamily: "NotoSansJP",
-    marginBottom: 6,
+    marginBottom: 8,
+  },
+  tableContainer: {
+    border: "1px solid #000",
+    marginBottom: 8,
+  },
+  nameRow: {
+    flexDirection: "row",
+    backgroundColor: "#f0f0f0",
+    borderBottom: "1px solid #ccc",
+  },
+  valueRow: {
+    flexDirection: "row",
+    borderBottom: "1px solid #000",
+  },
+  cell: {
+    padding: 4,
+    flex: 1,
+    minWidth: 80,
+  },
+  cellBorderRight: {
+    borderRight: "1px solid #ccc",
+  },
+  nameCell: {
+    backgroundColor: "#f0f0f0",
+  },
+  nameText: {
+    fontSize: 10,
+    fontFamily: "NotoSansJP",
+    textAlign: "left",
+  },
+  valueCell: {
+    backgroundColor: "#ffffff",
+  },
+  valueText: {
+    fontSize: 10,
+    fontFamily: "NotoSansJP",
+    textAlign: "right",
   },
   unitTotalRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 4,
+    justifyContent: "flex-end",
+    marginTop: 8,
   },
   unitTotalLabel: {
     fontSize: 11,
     fontFamily: "NotoSansJP",
+    fontWeight: "bold",
   },
   unitTotalValue: {
     fontSize: 11,
     fontFamily: "NotoSansJP",
     fontWeight: "bold",
-  },
-  residentRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginLeft: 10,
-    marginBottom: 2,
-  },
-  residentName: {
-    fontSize: 10,
-    fontFamily: "NotoSansJP",
-  },
-  residentValue: {
-    fontSize: 10,
-    fontFamily: "NotoSansJP",
-    textAlign: "right",
   },
 })
 
