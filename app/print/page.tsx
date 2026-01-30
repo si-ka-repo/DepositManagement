@@ -26,15 +26,6 @@ export default function PrintPage() {
     router.push(`/print/preview?facilityId=${selectedFacilityId}&year=${year}&month=${month}&type=batch`)
   }
 
-  const handlePreview = () => {
-    if (!selectedFacilityId) {
-      alert('施設が選択されていません')
-      return
-    }
-    // プレビューページに遷移
-    router.push(`/print/preview?facilityId=${selectedFacilityId}&year=${year}&month=${month}&type=batch`)
-  }
-
   return (
     <MainLayout>
       <div>
@@ -63,18 +54,7 @@ export default function PrintPage() {
               </p>
             )}
 
-            <div className="flex gap-4">
-              <button
-                onClick={handlePreview}
-                disabled={selectedFacilityId === null}
-                className={`px-6 py-2 rounded ${
-                  selectedFacilityId === null
-                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                    : 'bg-green-500 text-white hover:bg-green-600'
-                }`}
-              >
-                PDF出力（プレビュー）
-              </button>
+            <div>
               <button
                 onClick={handlePrint}
                 disabled={selectedFacilityId === null}

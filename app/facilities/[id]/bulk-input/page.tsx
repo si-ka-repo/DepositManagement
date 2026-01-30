@@ -152,9 +152,7 @@ export default function BulkInputPage() {
     }
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    
+  const handleFormSubmit = async () => {
     // バリデーション
     if (!formData.residentId) {
       setToast({
@@ -300,6 +298,11 @@ export default function BulkInputPage() {
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    await handleFormSubmit()
   }
 
   const getTransactionTypeLabel = (type: string) => {
@@ -603,7 +606,7 @@ export default function BulkInputPage() {
           }}
           title={formData.transactionType === 'in' ? '💰 入金登録' : '💸 出金登録'}
         >
-          <form onSubmit={handleSubmit}>
+          <form onSubmit={(e) => { e.preventDefault(); }}>
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium mb-1">
@@ -692,6 +695,20 @@ export default function BulkInputPage() {
 
               <div>
                 <label className="block text-sm font-medium mb-1">
+                  区分 <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={formData.transactionType}
+                  onChange={(e) => setFormData({ ...formData, transactionType: e.target.value })}
+                  className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="in">入金</option>
+                  <option value="out">出金</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">
                   対象日 <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -750,7 +767,8 @@ export default function BulkInputPage() {
 
               <div className="flex gap-4 pt-4">
                 <button
-                  type="submit"
+                  type="button"
+                  onClick={handleFormSubmit}
                   disabled={isSubmitting}
                   className={`flex-1 px-4 py-2 rounded text-white ${
                     formData.transactionType === 'in'
