@@ -507,8 +507,11 @@ function MasterContent() {
       const allUnits = await res.json()
       const filteredUnits = allUnits.filter((u: Unit) => u.facilityId === facilityId && u.isActive)
       setAvailableUnits(filteredUnits)
-      if (filteredUnits.length > 0 && !editingResident) {
-        setResidentForm(prev => ({ ...prev, unitId: filteredUnits[0].id }))
+      // 新規追加時（unitId 未選択）のみ先頭ユニットを自動選択。編集時は上書きしない。
+      if (filteredUnits.length > 0) {
+        setResidentForm(prev =>
+          prev.unitId === 0 ? { ...prev, unitId: filteredUnits[0].id } : prev
+        )
       }
     } catch (error) {
       console.error('Failed to load units:', error)
@@ -552,6 +555,7 @@ function MasterContent() {
         alert('利用者を追加しました')
       }
       setShowResidentModal(false)
+      setEditingResident(null)
       
       // マスタデータのキャッシュを無効化
       await invalidateMasterCache(residentForm.facilityId)
@@ -1202,6 +1206,7 @@ function MasterContent() {
               onClose={() => {
                 if (!isSubmittingResident) {
                   setShowResidentModal(false)
+                  setEditingResident(null)
                 }
               }}
               title={editingResident ? '利用者を編集' : '利用者を追加'}
@@ -1412,6 +1417,7 @@ function MasterContent() {
                       onClick={() => {
                         if (!isSubmittingResident) {
                           setShowResidentModal(false)
+                          setEditingResident(null)
                         }
                       }}
                       className="flex-1 px-4 py-2 bg-gray-300 rounded hover:bg-gray-400 disabled:bg-gray-200 disabled:cursor-not-allowed"
