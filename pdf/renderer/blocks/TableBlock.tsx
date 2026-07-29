@@ -68,6 +68,9 @@ const TableBlock = ({
 
     // テーブルの列構造に合わせて合計行を作成
     const summaryRowData: Record<string, any> = {}
+    const summaryLabelColumnKey =
+      table.columns.find((col) => col.key === "category")?.key ??
+      table.columns[0].key
     table.columns.forEach((col) => {
       if (col.key === "income") {
         summaryRowData[col.key] = Number(income) || 0
@@ -76,8 +79,9 @@ const TableBlock = ({
       } else if (col.key === "balance" && balance !== null) {
         summaryRowData[col.key] = Number(balance) || 0
       } else {
-        // 最初の列に「合計（表示）」を表示、それ以外は空
-        summaryRowData[col.key] = col.key === table.columns[0].key ? summaryData.label : ""
+        // 種別列があればそこに「合計」、なければ先頭列
+        summaryRowData[col.key] =
+          col.key === summaryLabelColumnKey ? summaryData.label : ""
       }
     })
     return summaryRowData
