@@ -1,10 +1,8 @@
+import { BUSINESS_TIME_ZONE, formatJapanCalendarDate, getZonedCalendarParts } from '@/lib/calendarDate'
 import {
-  BUSINESS_TIME_ZONE,
-  formatJapanCalendarDate,
-  formatNumericCalendarDate,
-  getZonedCalendarParts,
-  lastDayOfGregorianMonth,
-} from '@/lib/calendarDate'
+  getInOutDateRange,
+  inOutDateRangeErrorMessage,
+} from '@/lib/bulkInputPageUtils'
 import { isValidDate, validateMaxLength, MAX_LENGTHS } from '@/lib/validation'
 
 /** 単一 POST / バッチ POST で共通の取引作成ペイロード（正規化後） */
@@ -56,24 +54,10 @@ export function validateTransactionCreateBody(
   const { year: cy, month: cm, day: cd } = getZonedCalendarParts(new Date(), BUSINESS_TIME_ZONE)
 
   if (transactionType === 'in' || transactionType === 'out') {
-    let minDate: string
-    let maxDate: string
-    let errorMessage: string
-
-    if (cd <= 10) {
-      const prevY = cm === 1 ? cy - 1 : cy
-      const prevM = cm === 1 ? 12 : cm - 1
-      minDate = formatNumericCalendarDate(prevY, prevM, 1)
-      maxDate = formatNumericCalendarDate(cy, cm, lastDayOfGregorianMonth(cy, cm))
-      errorMessage = '対象日は先月1日から今月末日までの日付を入力してください'
-    } else {
-      minDate = formatNumericCalendarDate(cy, cm, 1)
-      maxDate = formatNumericCalendarDate(cy, cm, cd)
-      errorMessage = '対象日は今月1日から今日までの日付を入力してください'
-    }
+    const { min: minDate, max: maxDate } = getInOutDateRange()
 
     if (transactionDateStr < minDate || transactionDateStr > maxDate) {
-      return { ok: false, error: errorMessage }
+      return { ok: false, error: inOutDateRangeErrorMessage(cd) }
     }
   }
 

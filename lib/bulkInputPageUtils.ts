@@ -1,4 +1,4 @@
-/** まとめて入力系ページ共通：入出金の対象日範囲（当日基準の10日ルール） */
+/** まとめて入力系ページ共通：入出金の対象日範囲（当日基準の締め猶予日ルール） */
 
 import {
   BUSINESS_TIME_ZONE,
@@ -8,11 +8,24 @@ import {
   lastDayOfGregorianMonth,
 } from '@/lib/calendarDate'
 
+/** 前月分の新規入出金を当月画面から入力できる期限（当月の日）。この日を含む。 */
+export const INPUT_GRACE_PERIOD_END_DAY = 13
+
+export function isWithinInputGracePeriod(day: number): boolean {
+  return day <= INPUT_GRACE_PERIOD_END_DAY
+}
+
+export function inOutDateRangeErrorMessage(day: number): string {
+  return isWithinInputGracePeriod(day)
+    ? '対象日は先月1日から今月末日までの日付を入力してください'
+    : '対象日は今月1日から今日までの日付を入力してください'
+}
+
 export function getInOutDateRange(): { min: string; max: string } {
   const now = new Date()
   const { year: cy, month: cm, day: cd } = getZonedCalendarParts(now, BUSINESS_TIME_ZONE)
 
-  if (cd <= 10) {
+  if (isWithinInputGracePeriod(cd)) {
     const prevY = cm === 1 ? cy - 1 : cy
     const prevM = cm === 1 ? 12 : cm - 1
     const min = formatNumericCalendarDate(prevY, prevM, 1)
@@ -29,7 +42,7 @@ export function getInOutDateRange(): { min: string; max: string } {
 /**
  * 明細行の「訂正」（in/out → correct_in/out）を UI で出してよいか。
  * - 閲覧中の年月がカレンダー上の当月、または
- * - 当日が10日以内で閲覧中の年月が直前の先月（前月締め後のグレース期間用）。
+ * - 当日が INPUT_GRACE_PERIOD_END_DAY 以内で閲覧中の年月が直前の先月（前月締め後のグレース期間用）。
  */
 export function isRowCorrectMarkAllowedForViewMonth(
   viewYear: number,
@@ -38,7 +51,7 @@ export function isRowCorrectMarkAllowedForViewMonth(
 ): boolean {
   const { year: cy, month: cm, day: cd } = getZonedCalendarParts(now, BUSINESS_TIME_ZONE)
   if (viewYear === cy && viewMonth === cm) return true
-  if (cd > 10) return false
+  if (!isWithinInputGracePeriod(cd)) return false
   const prevY = cm === 1 ? cy - 1 : cy
   const prevM = cm === 1 ? 12 : cm - 1
   return viewYear === prevY && viewMonth === prevM

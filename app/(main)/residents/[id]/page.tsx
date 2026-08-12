@@ -21,6 +21,8 @@ import { BUSINESS_TIME_ZONE, formatJapanCalendarDate, getZonedCalendarParts } fr
 import {
   defaultPastCorrectDateForFacilityMonth,
   getInOutDateRange,
+  INPUT_GRACE_PERIOD_END_DAY,
+  inOutDateRangeErrorMessage,
   isRowCorrectMarkAllowedForViewMonth,
 } from '@/lib/bulkInputPageUtils'
 
@@ -231,21 +233,12 @@ export default function ResidentDetailPage() {
       const transactionDate = new Date(formData.transactionDate)
       const transactionDateStr = formatJapanCalendarDate(transactionDate)
       
-      // 10日までは先月1日〜今月末日まで、11日以降は今月1日〜今日まで
       if (transactionDateStr < inOutDateRange.min || transactionDateStr > inOutDateRange.max) {
-        if (currentDay <= 10) {
-          setToast({
-            message: '対象日は先月1日から今月末日までの日付を入力してください',
-            type: 'error',
-            isVisible: true,
-          })
-        } else {
-          setToast({
-            message: '対象日は今月1日から今日までの日付を入力してください',
-            type: 'error',
-            isVisible: true,
-          })
-        }
+        setToast({
+          message: inOutDateRangeErrorMessage(currentDay),
+          type: 'error',
+          isVisible: true,
+        })
         return false
       }
     }
@@ -652,10 +645,10 @@ export default function ResidentDetailPage() {
             <span className="text-yellow-800">
               {allowRowCorrectMark ? (
                 <>
-                  🔒 締め済み　※当月10日までは下の一覧の「訂正」でこの月の入出金を訂正できます。新規の入出金は当月画面から入力してください。
+                  🔒 締め済み　※当月{INPUT_GRACE_PERIOD_END_DAY}日までは下の一覧の「訂正」でこの月の入出金を訂正できます。新規の入出金は当月画面から入力してください。
                 </>
               ) : (
-                <>🔒 締め済み　※次の月の１０日までは次の月の入金・出金で入力してください。</>
+                <>🔒 締め済み　※次の月の{INPUT_GRACE_PERIOD_END_DAY}日までは次の月の入金・出金で入力してください。</>
               )}
             </span>
           </div>

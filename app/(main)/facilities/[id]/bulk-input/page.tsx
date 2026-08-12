@@ -19,6 +19,8 @@ import { BUSINESS_TIME_ZONE, formatJapanCalendarDate, getZonedCalendarParts } fr
 import {
   defaultPastCorrectDateForFacilityMonth,
   getInOutDateRange,
+  INPUT_GRACE_PERIOD_END_DAY,
+  inOutDateRangeErrorMessage,
   isRowCorrectMarkAllowedForViewMonth,
 } from '@/lib/bulkInputPageUtils'
 import {
@@ -308,21 +310,12 @@ export default function BulkInputPage() {
       const transactionDate = new Date(formData.transactionDate)
       const transactionDateStr = formatJapanCalendarDate(transactionDate)
       
-      // 10日までは先月1日〜今月末日まで、11日以降は今月1日〜今日まで
       if (transactionDateStr < inOutDateRange.min || transactionDateStr > inOutDateRange.max) {
-        if (currentDay <= 10) {
-          setToast({
-            message: '対象日は先月1日から今月末日までの日付を入力してください',
-            type: 'error',
-            isVisible: true,
-          })
-        } else {
-          setToast({
-            message: '対象日は今月1日から今日までの日付を入力してください',
-            type: 'error',
-            isVisible: true,
-          })
-        }
+        setToast({
+          message: inOutDateRangeErrorMessage(currentDay),
+          type: 'error',
+          isVisible: true,
+        })
         return false
       }
     }
@@ -778,13 +771,13 @@ export default function BulkInputPage() {
             <span className="text-xl font-semibold">
               {year}年{month}月
             </span>
-            <span className="text-sm text-gray-500">（月の移動はできません。前の月については10日まではこの画面で入力可能です。）</span>
+            <span className="text-sm text-gray-500">（月の移動はできません。前の月については{INPUT_GRACE_PERIOD_END_DAY}日まではこの画面で入力可能です。）</span>
           </div>
         </div>
 
         {isPastMonth && (
           <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded">
-            <span className="text-yellow-800">🔒 締め済み　※次の月の１０日までは次の月の入金・出金で入力してください。</span>
+            <span className="text-yellow-800">🔒 締め済み　※次の月の{INPUT_GRACE_PERIOD_END_DAY}日までは次の月の入金・出金で入力してください。</span>
           </div>
         )}
 
