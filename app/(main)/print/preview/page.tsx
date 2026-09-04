@@ -180,9 +180,18 @@ function PrintPreviewContent() {
     setIsLoading(true)
     setError(null)
     try {
-      const response = await fetch(
-        `/api/print/resident-statement?residentId=${residentId}&year=${year}&month=${month}&noticeType=${noticeType}`
-      )
+      const params = new URLSearchParams({
+        residentId: String(residentId),
+        noticeType,
+      })
+      if (startDateStr && endDateStr) {
+        params.set("startDate", startDateStr)
+        params.set("endDate", endDateStr)
+      } else {
+        params.set("year", String(year))
+        params.set("month", String(month))
+      }
+      const response = await fetch(`/api/print/resident-statement?${params}`)
       if (!response.ok) {
         throw new Error("印刷データの取得に失敗しました")
       }
@@ -243,7 +252,19 @@ function PrintPreviewContent() {
   }
 
   const handleResidentChange = (newResidentId: number) => {
-    router.push(`/print/preview?residentId=${newResidentId}&year=${year}&month=${month}&type=resident&noticeType=${noticeType}`)
+    const params = new URLSearchParams({
+      residentId: String(newResidentId),
+      type: "resident",
+      noticeType,
+    })
+    if (startDateStr && endDateStr) {
+      params.set("startDate", startDateStr)
+      params.set("endDate", endDateStr)
+    } else {
+      params.set("year", String(year))
+      params.set("month", String(month))
+    }
+    router.push(`/print/preview?${params}`)
   }
 
   const handleDateChange = (newYear: number, newMonth: number) => {
@@ -326,19 +347,25 @@ function PrintPreviewContent() {
                 ? "まとめて印刷 プレビュー" 
                 : printType === "family"
                   ? "預り金明細書（期間指定）印刷プレビュー"
-                : printType === "resident" 
-                  ? "預り金明細書 印刷プレビュー" 
+                : printType === "resident"
+                  ? noticeType === "moveout"
+                    ? startDateStr && endDateStr
+                      ? "預り金明細書（退居・期間指定）印刷プレビュー"
+                      : "預り金明細書（退居向け）印刷プレビュー"
+                    : "預り金明細書 印刷プレビュー"
                   : "本部報告（ユニット合計＋出納帳）プレビュー"}
             </h1>
-            {printType === "family" ? (
+            {printType === "family" || (printType === "resident" && startDateStr && endDateStr) ? (
               <div className="text-gray-700 space-y-1">
                 <div>
                   期間:{" "}
                   {familyEraPeriodLabel ?? `${startDateStr} 〜 ${endDateStr}`}
                 </div>
-                <div className="text-sm">
-                  用紙: {familyPaper === "a5" ? "A5 横" : "A4 縦"}
-                </div>
+                {printType === "family" && (
+                  <div className="text-sm">
+                    用紙: {familyPaper === "a5" ? "A5 横" : "A4 縦"}
+                  </div>
+                )}
               </div>
             ) : (
               <DateSelector

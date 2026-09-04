@@ -1,4 +1,4 @@
-export const runtime = 'edge';
+export const runtime = 'edge'
 export const dynamic = 'force-dynamic'
 
 import { NextResponse } from "next/server"
@@ -9,7 +9,23 @@ import {
   getLedgerSqlForPrint,
 } from "@/lib/printLedgerFetch"
 import { getCalendarMonthRange } from "@/lib/residentPrintEligibility"
-import { transformToResidentPrintData, buildNoticeFromFacilityTemplate } from "@/pdf/utils/transform"
+import {
+  transformToResidentPrintData,
+  transformToResidentPrintDataForRange,
+  buildNoticeFromFacilityTemplate,
+} from "@/pdf/utils/transform"
+
+function parseYmdToLocalDate(
+  ymd: string,
+  hours: number,
+  minutes: number,
+  seconds: number,
+  milliseconds: number
+) {
+  const [y, m, d] = ymd.split("-").map((v) => Number(v))
+  if (!y || !m || !d) return null
+  return new Date(y, m - 1, d, hours, minutes, seconds, milliseconds)
+}
 
 export async function GET(request: Request) {
   try {
@@ -17,9 +33,18 @@ export async function GET(request: Request) {
     const residentId = searchParams.get("residentId")
     const year = searchParams.get("year")
     const month = searchParams.get("month")
+    const startDateStr = searchParams.get("startDate")
+    const endDateStr = searchParams.get("endDate")
     const noticeType = searchParams.get("noticeType") === "moveout" ? "moveout" : "normal"
+    const useRange = Boolean(startDateStr && endDateStr)
 
-    if (!residentId || !year || !month) {
+    if (!residentId) {
+      return NextResponse.json(
+        { error: "Missing required parameters" },
+        { status: 400 }
+      )
+    }
+    if (!useRange && (!year || !month)) {
       return NextResponse.json(
         { error: "Missing required parameters" },
         { status: 400 }
@@ -33,10 +58,38 @@ export async function GET(request: Request) {
         { status: 400 }
       )
     }
-    const y = Number(year)
-    const m = Number(month)
-    const { monthEnd, monthStart } = getCalendarMonthRange(y, m)
-    const previousMonthEnd = new Date(y, m - 1, 0, 23, 59, 59, 999)
+
+    let rangeStart: Date | null = null
+    let rangeEnd: Date | null = null
+    let y = 0
+    let m = 0
+    let monthStart: Date | null = null
+    let monthEnd: Date | null = null
+    let previousMonthEnd: Date | null = null
+
+    if (useRange) {
+      rangeStart = parseYmdToLocalDate(startDateStr!, 0, 0, 0, 0)
+      rangeEnd = parseYmdToLocalDate(endDateStr!, 23, 59, 59, 999)
+      if (!rangeStart || !rangeEnd) {
+        return NextResponse.json(
+          { error: "Invalid date parameters" },
+          { status: 400 }
+        )
+      }
+      if (rangeStart.getTime() > rangeEnd.getTime()) {
+        return NextResponse.json(
+          { error: "startDate must be <= endDate" },
+          { status: 400 }
+        )
+      }
+    } else {
+      y = Number(year)
+      m = Number(month)
+      const cal = getCalendarMonthRange(y, m)
+      monthStart = cal.monthStart
+      monthEnd = cal.monthEnd
+      previousMonthEnd = new Date(y, m - 1, 0, 23, 59, 59, 999)
+    }
 
     const sqlMeta = neonHttpSql()
     const resident = await fetchResidentWithFacilityUnitForStatement(
@@ -53,14 +106,21 @@ export async function GET(request: Request) {
 
     const sql = getLedgerSqlForPrint()
     const facilityIdOfResident = resident.facilityId
+
+    const openingCutoff = useRange
+      ? new Date(rangeStart!.getTime() - 1)
+      : previousMonthEnd!
+    const txFrom = useRange ? rangeStart! : monthStart!
+    const txTo = useRange ? rangeEnd! : monthEnd!
+
     const { openingBalances: openingMap, transactionsByResident: txMap } =
       await fetchOpeningBalancesAndTransactionsInRangeByResidentChunks(
         sql,
         facilityIdOfResident,
         [resident.id],
-        previousMonthEnd,
-        monthStart,
-        monthEnd
+        openingCutoff,
+        txFrom,
+        txTo
       )
 
     const residentForPrint = {
@@ -68,19 +128,35 @@ export async function GET(request: Request) {
       transactions: txMap.get(resident.id) ?? [],
     }
 
-    const printData = transformToResidentPrintData(
-      residentForPrint,
-      y,
-      m,
-      noticeType === "moveout" ? "japaneseEraYearMonth" : "monthOnly",
-      {
-        openingBalanceThruPreviousMonthEnd:
-          openingMap.get(resident.id) ?? 0,
-      }
-    )
+    const printData = useRange
+      ? transformToResidentPrintDataForRange(
+          residentForPrint,
+          rangeStart!,
+          rangeEnd!,
+          {
+            openingBalanceThruInstantBeforeStart:
+              openingMap.get(resident.id) ?? 0,
+          }
+        )
+      : transformToResidentPrintData(
+          residentForPrint,
+          y,
+          m,
+          noticeType === "moveout" ? "japaneseEraYearMonth" : "monthOnly",
+          {
+            openingBalanceThruPreviousMonthEnd:
+              openingMap.get(resident.id) ?? 0,
+          }
+        )
 
-    const facility = resident.facility as { noticeTemplateNormal?: string | null; noticeTemplateMoveOut?: string | null }
-    const templateRaw = noticeType === "moveout" ? facility.noticeTemplateMoveOut : facility.noticeTemplateNormal
+    const facility = resident.facility as {
+      noticeTemplateNormal?: string | null
+      noticeTemplateMoveOut?: string | null
+    }
+    const templateRaw =
+      noticeType === "moveout"
+        ? facility.noticeTemplateMoveOut
+        : facility.noticeTemplateNormal
     const notice = buildNoticeFromFacilityTemplate(templateRaw, noticeType)
     if (notice) printData.notice = notice
 

@@ -17,7 +17,7 @@ import { isValidDate } from '@/lib/validation'
 import { invalidateTransactionCache } from '@/lib/cache'
 import { getResidentDisplayName } from '@/lib/displayName'
 import { halfWidthToFullWidthFormText } from '@/lib/japaneseWidth'
-import { BUSINESS_TIME_ZONE, formatJapanCalendarDate, getZonedCalendarParts } from '@/lib/calendarDate'
+import { BUSINESS_TIME_ZONE, formatJapanCalendarDate, formatNumericCalendarDate, getZonedCalendarParts, lastDayOfGregorianMonth } from '@/lib/calendarDate'
 import {
   defaultPastCorrectDateForFacilityMonth,
   getInOutDateRange,
@@ -108,6 +108,11 @@ export default function ResidentDetailPage() {
   const [markCorrectSubmitting, setMarkCorrectSubmitting] = useState(false)
   const [pendingTransactions, setPendingTransactions] = useState<PendingTransaction[]>([])
   const [editingPendingId, setEditingPendingId] = useState<string | null>(null)
+  const [showMoveoutPrintModal, setShowMoveoutPrintModal] = useState(false)
+  const [moveoutPeriodMode, setMoveoutPeriodMode] = useState<'month' | 'range'>('month')
+  const [moveoutStartDate, setMoveoutStartDate] = useState('')
+  const [moveoutEndDate, setMoveoutEndDate] = useState('')
+  const [moveoutPeriodError, setMoveoutPeriodError] = useState<string | null>(null)
 
   const inOutAmountInputRef = useRef<FormattedAmountInputHandle>(null)
   const correctAmountInputRef = useRef<FormattedAmountInputHandle>(null)
@@ -127,6 +132,55 @@ export default function ResidentDetailPage() {
   const allowRowCorrectMark = isRowCorrectMarkAllowedForViewMonth(year, month)
 
   const inOutDateRange = getInOutDateRange()
+
+  const getSelectedMonthRangeYmd = useCallback(() => {
+    const start = formatNumericCalendarDate(year, month, 1)
+    const end = formatNumericCalendarDate(
+      year,
+      month,
+      lastDayOfGregorianMonth(year, month)
+    )
+    return { start, end }
+  }, [year, month])
+
+  const openMoveoutPrintModal = () => {
+    const { start, end } = getSelectedMonthRangeYmd()
+    setMoveoutPeriodMode('month')
+    setMoveoutStartDate(start)
+    setMoveoutEndDate(end)
+    setMoveoutPeriodError(null)
+    setShowMoveoutPrintModal(true)
+  }
+
+  const handleMoveoutPrintNavigate = () => {
+    if (moveoutPeriodMode === 'month') {
+      setShowMoveoutPrintModal(false)
+      router.push(
+        `/print/preview?residentId=${residentId}&year=${year}&month=${month}&type=resident&noticeType=moveout`
+      )
+      return
+    }
+
+    if (!moveoutStartDate || !moveoutEndDate) {
+      setMoveoutPeriodError('開始日と終了日を入力してください')
+      return
+    }
+    const startMs = new Date(`${moveoutStartDate}T00:00:00`).getTime()
+    const endMs = new Date(`${moveoutEndDate}T00:00:00`).getTime()
+    if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) {
+      setMoveoutPeriodError('日付の形式が正しくありません')
+      return
+    }
+    if (startMs > endMs) {
+      setMoveoutPeriodError('開始日は終了日以前にしてください')
+      return
+    }
+
+    setShowMoveoutPrintModal(false)
+    router.push(
+      `/print/preview?residentId=${residentId}&startDate=${moveoutStartDate}&endDate=${moveoutEndDate}&type=resident&noticeType=moveout`
+    )
+  }
 
   useEffect(() => {
     fetchResidentData()
@@ -673,11 +727,7 @@ export default function ResidentDetailPage() {
               🖨️ 印刷
             </button>
             <button
-              onClick={() => {
-                router.push(
-                  `/print/preview?residentId=${residentId}&year=${year}&month=${month}&type=resident&noticeType=moveout`
-                )
-              }}
+              onClick={openMoveoutPrintModal}
               className="px-6 py-2 bg-amber-500 text-white rounded hover:bg-amber-600 shadow-md hover:shadow-lg transition-shadow"
               title="預り金明細書を印刷（退居向け）"
             >
@@ -747,6 +797,116 @@ export default function ResidentDetailPage() {
             </button>
           </div>
         )}
+
+        {/* 退居向け印刷：対象期間選択 */}
+        <Modal
+          isOpen={showMoveoutPrintModal}
+          onClose={() => {
+            setShowMoveoutPrintModal(false)
+            setMoveoutPeriodError(null)
+          }}
+          title="退居向け印刷"
+        >
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600">
+              預り金明細書（退居向けお知らせ）の対象期間を選んでください。
+            </p>
+
+            <fieldset className="space-y-3">
+              <legend className="sr-only">対象期間</legend>
+              <label className="flex items-start gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="moveoutPeriodMode"
+                  checked={moveoutPeriodMode === 'month'}
+                  onChange={() => {
+                    setMoveoutPeriodMode('month')
+                    setMoveoutPeriodError(null)
+                  }}
+                  className="mt-1"
+                />
+                <span>
+                  <span className="font-medium">当月のみ</span>
+                  <span className="block text-sm text-gray-600">
+                    画面で選択中の {year}年{month}月分を印刷します
+                  </span>
+                </span>
+              </label>
+              <label className="flex items-start gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="moveoutPeriodMode"
+                  checked={moveoutPeriodMode === 'range'}
+                  onChange={() => {
+                    const { start, end } = getSelectedMonthRangeYmd()
+                    setMoveoutPeriodMode('range')
+                    setMoveoutStartDate(start)
+                    setMoveoutEndDate(end)
+                    setMoveoutPeriodError(null)
+                  }}
+                  className="mt-1"
+                />
+                <span className="font-medium">期間を指定</span>
+              </label>
+            </fieldset>
+
+            {moveoutPeriodMode === 'range' && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pl-6">
+                <label className="block">
+                  <div className="text-sm text-gray-600 mb-1">開始日</div>
+                  <input
+                    type="date"
+                    value={moveoutStartDate}
+                    onChange={(e) => {
+                      setMoveoutStartDate(e.target.value)
+                      setMoveoutPeriodError(null)
+                    }}
+                    className="w-full border border-gray-300 rounded px-3 py-2"
+                  />
+                </label>
+                <label className="block">
+                  <div className="text-sm text-gray-600 mb-1">終了日</div>
+                  <input
+                    type="date"
+                    value={moveoutEndDate}
+                    onChange={(e) => {
+                      setMoveoutEndDate(e.target.value)
+                      setMoveoutPeriodError(null)
+                    }}
+                    className="w-full border border-gray-300 rounded px-3 py-2"
+                  />
+                </label>
+                <p className="sm:col-span-2 text-sm text-blue-600">
+                  ※ 初期値は画面で選択中の年月の月初〜月末です
+                </p>
+              </div>
+            )}
+
+            {moveoutPeriodError && (
+              <p className="text-sm text-red-600">{moveoutPeriodError}</p>
+            )}
+
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowMoveoutPrintModal(false)
+                  setMoveoutPeriodError(null)
+                }}
+                className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300"
+              >
+                キャンセル
+              </button>
+              <button
+                type="button"
+                onClick={handleMoveoutPrintNavigate}
+                className="px-4 py-2 rounded bg-amber-500 text-white hover:bg-amber-600"
+              >
+                プレビューへ
+              </button>
+            </div>
+          </div>
+        </Modal>
 
         {/* 入金・出金モーダル */}
         <Modal
